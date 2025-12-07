@@ -63,19 +63,11 @@
             <!-- Control Buttons -->
             <StackPanel Orientation="Horizontal" Margin="5">
                 <Button x:Name="btnChecks" Content="Checks" Click="BtnChecks_Click" Margin="5" Width="100" Height="30"/>
-
-                <StackPanel Orientation="Horizontal" Margin="20,0">
-                    <TextBlock Text="Тип запису:" Margin="5" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="cmbAddType" Width="120" Margin="5">
-                        <ComboBoxItem Content="Витрати" Tag="Expenses"/>
-                        <ComboBoxItem Content="Доходи" Tag="Income"/>
-                        <ComboBoxItem Content="Заощадження" Tag="Savings"/>
-                    </ComboBox>
-                </StackPanel>
-
                 <Button x:Name="btnAddRecord" Content="AddRecord" Click="BtnAddRecord_Click" Margin="5" Width="100" Height="30"/>
                 <Button x:Name="btnSettings" Content="Settings" Click="BtnSettings_Click" Margin="5" Width="100" Height="30"/>
                 <Button x:Name="btnSave" Content="Save" Click="BtnSave_Click" Margin="5" Width="100" Height="30"/>
+                 <Button x:Name="btnEditCategories" Content="Редагувати категорії" Click="BtnEditCategories_Click"  Width="150" Height="35" Margin="5" />
+                <Button x:Name="btnDeleteCategories" Content="Видалити категорії" Click="BtnDeleteCategories_Click"  Width="150" Height="35" Margin="5"/>
             </StackPanel>
         </StackPanel>
     </Grid>

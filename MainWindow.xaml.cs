@@ -1,42 +1,39 @@
-﻿using System;
+﻿using MySql.Data.MySqlClient;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using static Mysqlx.Datatypes.Scalar.Types;
 
 namespace t
 {
     public partial class MainWindow : Window
     {
+        private string connectionString = "Server=sql7.freesqldatabase.com;Port=3306;user=sql7803706;Pwd=DrUIbcmB1f;Database=sql7803706;CharSet=utf8mb4;";
         private List<Transaction> transactions = new List<Transaction>();
         private PeriodType currentPeriod = PeriodType.Day;
         private ViewType currentViewType = ViewType.Expenses;
         private DateTime currentDate = DateTime.Now;
         private DateTime customStartDate = DateTime.Now;
         private DateTime customEndDate = DateTime.Now;
-        public MainWindow()
+        private int currentUserId;
+        public MainWindow(int userId)
         {
+           
             InitializeComponent();
-            // Встановлюємо початкові значення
+            currentUserId = userId;
             cmbType.SelectedIndex = 0;
-            cmbAddType.SelectedIndex = 0;
 
-            // Ініціалізуємо DatePicker
             dpStartDate.SelectedDate = DateTime.Now;
             dpEndDate.SelectedDate = DateTime.Now;
 
             UpdateDateDisplay();
             UpdateAmountDisplay();
             UpdateGeneralBalance();
+        }
+        private int GetCurrentUserId()
+        {
+            return currentUserId;
         }
         private void UpdateDateDisplay()
         {
@@ -126,19 +123,94 @@ namespace t
                     break;
             }
 
-            return transactions
-                .Where(t => t.Date >= startDate && t.Date <= endDate && t.Type == currentViewType.ToString())
-                .Sum(t => t.Amount);
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    string tableName = "";
+                    string amountColumn = "";
+                    string dateColumn = "";
+                    
+                    switch (currentViewType)
+                    {
+                        case ViewType.Expenses:
+                            tableName = "expenses";
+                            amountColumn = "AmoutExpenses"; 
+                            dateColumn = "ExpenseDate";
+                            break;
+                        case ViewType.Income:
+                            tableName = "income";
+                            amountColumn = "AmountIncome";
+                            dateColumn = "IncomeDate";
+                            break;
+                        case ViewType.Savings:
+                            tableName = "saving";
+                            amountColumn = "AmoutSaving";
+                            dateColumn = "SavingDate";
+                            break;
+                    }
+
+                    if (string.IsNullOrEmpty(tableName))
+                        return 0;
+
+                    string query = $@"
+                SELECT COALESCE(SUM({amountColumn}), 0) 
+                FROM {tableName} 
+                WHERE IDuser = @UserId 
+                AND {dateColumn} BETWEEN @StartDate AND @EndDate";
+
+                    using (MySqlCommand command = new MySqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@UserId", currentUserId);
+                        command.Parameters.AddWithValue("@StartDate", startDate);
+                        command.Parameters.AddWithValue("@EndDate", endDate);
+
+                        var result = command.ExecuteScalar();
+                        return Convert.ToDecimal(result);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка при отриманні даних з бази: {ex.Message}");
+                return 0;
+            }
         }
 
         private void UpdateGeneralBalance()
         {
-            decimal totalIncome = transactions.Where(t => t.Type == "Income").Sum(t => t.Amount);
-            decimal totalExpenses = transactions.Where(t => t.Type == "Expenses").Sum(t => t.Amount);
-            decimal balance = totalIncome - totalExpenses;
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
 
-            txtGeneralBalance.Text = $"{balance:F2}";
-            txtGeneralBalance.Foreground = balance >= 0 ? System.Windows.Media.Brushes.Green : System.Windows.Media.Brushes.Red;
+                    int currentUserId = GetCurrentUserId();
+
+                    // Використовуємо правильні назви стовпців
+                    string query = @"
+                SELECT 
+                    (SELECT COALESCE(SUM(AmountIncome), 0) FROM income WHERE IDuser = @UserId) -
+                    (SELECT COALESCE(SUM(AmoutExpenses), 0) FROM expenses WHERE IDuser = @UserId) AS Balance";
+
+                    using (MySqlCommand command = new MySqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@UserId", currentUserId);
+
+                        var result = command.ExecuteScalar();
+                        decimal balance = result != null && result != DBNull.Value ? Convert.ToDecimal(result) : 0;
+
+                        txtGeneralBalance.Text = $"{balance:F2}";
+                        txtGeneralBalance.Foreground = balance >= 0 ? System.Windows.Media.Brushes.Green : System.Windows.Media.Brushes.Red;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка при отриманні загального балансу: {ex.Message}");
+            }
         }
 
         private void ReturnToCurrentPeriod()
@@ -308,6 +380,27 @@ namespace t
             }
         }
 
+        private void BtnEditCategories_Click(object sender, RoutedEventArgs e)
+        {
+            // Тепер вікно самостійно керує перемиканням між типами категорій
+            EditCategory editWindow = new EditCategory(currentUserId);
+            editWindow.ShowDialog();
+
+            // Оновити дані після редагування категорій
+            UpdateAmountDisplay();
+            UpdateGeneralBalance();
+        }
+
+        private void BtnDeleteCategories_Click(object sender, RoutedEventArgs e)
+        {
+            // Тепер вікно самостійно керує перемиканням між типами категорій
+            DeleteCategory deleteWindow = new DeleteCategory(currentUserId);
+            deleteWindow.ShowDialog();
+
+            // Оновити дані після видалення категорій
+            UpdateAmountDisplay();
+            UpdateGeneralBalance();
+        }
         private void DatePicker_SelectedDateChanged(object sender, SelectionChangedEventArgs e)
         {
             if (currentPeriod == PeriodType.Custom && dpStartDate.SelectedDate.HasValue && dpEndDate.SelectedDate.HasValue)
@@ -341,25 +434,62 @@ namespace t
 
         private void BtnChecks_Click(object sender, RoutedEventArgs e)
         {
-            ChecksData checksWindow = new ChecksData();
+            ChecksData checksWindow = new ChecksData(currentUserId);
             checksWindow.ShowDialog();
+            this.Close();
         }
 
         private void BtnAddRecord_Click(object sender, RoutedEventArgs e)
         {
-            Expenses addRecordWindow = new Expenses();
+            DateTime dateToPass;
+
+            // Якщо ви хочете передавати поточну дату з періоду
+            switch (currentPeriod)
+            {
+                case PeriodType.Day:
+                    dateToPass = currentDate;
+                    break;
+                case PeriodType.Week:
+                    // Передаємо перший день тижня
+                    dateToPass = GetStartOfWeek(currentDate);
+                    break;
+                case PeriodType.Month:
+                    // Передаємо перший день місяця
+                    dateToPass = new DateTime(currentDate.Year, currentDate.Month, 1);
+                    break;
+                case PeriodType.Year:
+                    // Передаємо перший день року
+                    dateToPass = new DateTime(currentDate.Year, 1, 1);
+                    break;
+                case PeriodType.Custom:
+                    dateToPass = customStartDate;
+                    break;
+                default:
+                    dateToPass = DateTime.Now;
+                    break;
+            }
+
+            // Передати userId і дату у вікно Expenses
+            Expenses addRecordWindow = new Expenses(currentUserId, dateToPass);
             addRecordWindow.ShowDialog();
+
+            // Оновити дані після закриття вікна додавання
+            UpdateAmountDisplay();
+            UpdateGeneralBalance();
         }
+
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            UserSignIn UserSignInWindow = new UserSignIn();
-            UserSignInWindow.ShowDialog();
+            Savings savingsWindow = new Savings(currentUserId);
+            savingsWindow.ShowDialog();
+            this.Close();
         }
         private void BtnSettings_Click(object sender, RoutedEventArgs e)
         {
-            UserSettings settingsWindow = new UserSettings();
+            UserSettings settingsWindow = new UserSettings(currentUserId);
             settingsWindow.ShowDialog();
+            this.Close();
         }
     }
 }
