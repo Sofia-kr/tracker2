@@ -7,6 +7,68 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Date Navigation - Top -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <Button x:Name="btnPrev" Content="←" Click="BtnPrev_Click" Margin="5" Width="40" Height="40" FontWeight="Bold" FontSize="16"/>
+            <Button x:Name="btnDatePeriod" Content="09.09.2025" Margin="20,5" VerticalAlignment="Center" FontSize="16" FontWeight="Bold" Width="400" 
+                Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Подвійний клік для повернення до поточного періоду"/>
+            <Button x:Name="btnNext" Content="→" Click="BtnNext_Click" Margin="5" Width="40" Height="40" FontWeight="Bold" FontSize="16"/>
+        </StackPanel>
+
+        <!-- Custom Period Selection - Initially Hidden -->
+        <StackPanel Grid.Row="1" x:Name="pnlCustomPeriod" Orientation="Horizontal" Margin="10" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="Collapsed">
+            <TextBlock Text="Власний період:" Margin="5" VerticalAlignment="Center" FontSize="14"/>
+            <DatePicker x:Name="dpStartDate" Margin="5" Width="120" SelectedDateChanged="DatePicker_SelectedDateChanged"/>
+            <TextBlock Text="до" Margin="5" VerticalAlignment="Center"/>
+            <DatePicker x:Name="dpEndDate" Margin="5" Width="120" SelectedDateChanged="DatePicker_SelectedDateChanged"/>
+        </StackPanel>
+
+        <!-- Period Type Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <Button x:Name="btnDay" Content="День" Click="BtnDay_Click" Margin="5" Width="80" Height="30"/>
+            <Button x:Name="btnWeek" Content="Тиждень" Click="BtnWeek_Click" Margin="5" Width="80" Height="30"/>
+            <Button x:Name="btnMonth" Content="Місяць" Click="BtnMonth_Click" Margin="5" Width="80" Height="30"/>
+            <Button x:Name="btnYear" Content="Рік" Click="BtnYear_Click" Margin="5" Width="80" Height="30"/>
+            <Button x:Name="btnCustom" Content="Період" Click="BtnCustom_Click" Margin="5" Width="80" Height="30"/>
+        </StackPanel>
+
+        <!-- Amount Display Section -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="10" VerticalAlignment="Center">
+            <TextBlock Text="Тип:" Margin="5" VerticalAlignment="Center" FontSize="14"/>
+            <ComboBox x:Name="cmbType" Width="120" Margin="5" SelectionChanged="CmbType_SelectionChanged">
+                <ComboBoxItem Content="Витрати" Tag="Expenses"/>
+                <ComboBoxItem Content="Доходи" Tag="Income"/>
+                <ComboBoxItem Content="Заощадження" Tag="Savings"/>
+            </ComboBox>
+            <TextBlock Text="Сума:" Margin="20,5,5,5" VerticalAlignment="Center" FontSize="14"/>
+            <TextBlock x:Name="txtAmount" Margin="5" VerticalAlignment="Center" FontSize="16" FontWeight="Bold" Width="150"/>
+        </StackPanel>
+
+        <!-- General Balance and Control Buttons -->
+        <StackPanel Grid.Row="4" Orientation="Vertical" Margin="10">
+            <!-- General Balance -->
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <TextBlock Text="Загальний баланс:" Margin="5" VerticalAlignment="Center" FontSize="14"/>
+                <TextBlock x:Name="txtGeneralBalance" Margin="20,5" VerticalAlignment="Center" FontSize="16" FontWeight="Bold" Width="150"/>
+            </StackPanel>
+
+            <!-- Control Buttons -->
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <Button x:Name="btnChecks" Content="Checks" Click="BtnChecks_Click" Margin="5" Width="100" Height="30"/>
+                <Button x:Name="btnAddRecord" Content="AddRecord" Click="BtnAddRecord_Click" Margin="5" Width="100" Height="30"/>
+                <Button x:Name="btnSettings" Content="Settings" Click="BtnSettings_Click" Margin="5" Width="100" Height="30"/>
+                <Button x:Name="btnSave" Content="Save" Click="BtnSave_Click" Margin="5" Width="100" Height="30"/>
+                 <Button x:Name="btnEditCategories" Content="Редагувати категорії" Click="BtnEditCategories_Click"  Width="150" Height="35" Margin="5" />
+                <Button x:Name="btnDeleteCategories" Content="Видалити категорії" Click="BtnDeleteCategories_Click"  Width="150" Height="35" Margin="5"/>
+            </StackPanel>
+        </StackPanel>
     </Grid>
 </Window>
