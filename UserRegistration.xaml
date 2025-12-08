@@ -7,7 +7,34 @@
         mc:Ignorable="d"
         Title="UserRegistration" Height="1080" Width="1920">
     <Grid>
-    
+        <Label Content="Електроння пошта:" HorizontalAlignment="Left" Margin="242,79,0,0" VerticalAlignment="Top" Height="34" Width="222" FontSize="20"/>
+        <TextBox x:Name="EmailTextBox" HorizontalAlignment="Left" Margin="448,86,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="300" Height="30"/>
+
+        <Label Content="Ім'я:" HorizontalAlignment="Left" Margin="242,151,0,0" VerticalAlignment="Top" Height="34" Width="222" FontSize="20"/>
+        <TextBox x:Name="NameTextBox" HorizontalAlignment="Left" Margin="448,158,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="300" Height="30"/>
+
+        <Label Content="Пароль:" HorizontalAlignment="Left" Margin="242,240,0,0" VerticalAlignment="Top" Height="34" Width="222" FontSize="20"/>
+        <PasswordBox x:Name="PasswordBox" HorizontalAlignment="Left" Margin="448,247,0,0" VerticalAlignment="Top" Width="300" Height="30"/>
+
+        <Label Content="Введіть питання для відновлення паролю:" HorizontalAlignment="Left" Margin="242,307,0,0" VerticalAlignment="Top" Height="34" Width="506" FontSize="20"/>
+        <TextBox x:Name="SpecialQuestionTextBox" HorizontalAlignment="Left" Margin="242,360,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="334" Height="30"/>
+
+        <Label Content="Введіть відповідь:" HorizontalAlignment="Left" Margin="242,411,0,0" VerticalAlignment="Top" Height="34" Width="506" FontSize="20"/>
+        <TextBox x:Name="SpecialAnswerTextBox" HorizontalAlignment="Left" Margin="242,464,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="334" Height="30"/>
+        <Label Content="*обов'язково запам'ятайте" HorizontalAlignment="Left" Margin="242,496,0,0" VerticalAlignment="Top" Height="36" Width="506" FontSize="14"/>
+
+        <Button x:Name="RegistrationButton" Content="Зареєструватися" HorizontalAlignment="Left" Margin="153,661,0,0" VerticalAlignment="Top" Height="40" Width="200" FontSize="18" Click="RegistrationButton_Click"/>
+
+        <Button x:Name="ReturnButton" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Width="50" Height="50" Click="ReturnButton_Click">
+            <Button.Foreground>
+                <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                    <GradientStop Color="Black"/>
+                    <GradientStop Color="White" Offset="1"/>
+                </LinearGradientBrush>
+            </Button.Foreground>
+        </Button>
+        <Button x:Name="CancelButton" Content="Скасувати" HorizontalAlignment="Left" Margin="476,661,0,0" VerticalAlignment="Top" Height="40" Width="200" FontSize="18" Click="CancelButton_Click"/>
+
 
     </Grid>
 </Window>
