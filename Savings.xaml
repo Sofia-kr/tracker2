@@ -9,6 +9,163 @@
         Background="#F5F5F5">
 
     <Grid>
-     
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <Border Grid.Row="0" Background="#4CAF50" Padding="15">
+            <StackPanel>
+                <TextBlock Text="ЗАОЩАДЖЕННЯ" 
+                         FontSize="24" 
+                         FontWeight="Bold" 
+                         Foreground="White"
+                         HorizontalAlignment="Center"/>
+                <TextBlock x:Name="txtInstruction" 
+                         Text="Додайте кошти до заощаджень"
+                         FontSize="14" 
+                         Foreground="White"
+                         HorizontalAlignment="Center"
+                         Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Основний вміст -->
+        <Border Grid.Row="1" 
+                Background="White" 
+                BorderBrush="#DDD" 
+                BorderThickness="1" 
+                Margin="20"
+                CornerRadius="12">
+            <Grid Margin="40">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Загальний баланс -->
+                <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,30">
+                    <TextBlock Text="Загальний баланс:" 
+                             FontSize="16" 
+                             Foreground="#666" 
+                             Margin="0,0,0,5"/>
+                    <TextBlock x:Name="GeneralBalanceText" 
+                             Text="$0.00" 
+                             FontSize="28" 
+                             FontWeight="Bold" 
+                             Foreground="#2E7D32"/>
+                </StackPanel>
+
+                <!-- Введення суми -->
+                <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,30">
+                    <TextBlock Text="Сума заощаджень:" 
+                             FontSize="16" 
+                             Foreground="#666" 
+                             Margin="0,0,0,10"/>
+                    <TextBox x:Name="AmountSavingTextBox" 
+                           Width="250" 
+                           Height="40" 
+                           FontSize="18"
+                           TextAlignment="Center" 
+                           BorderThickness="2" 
+                           BorderBrush="#2196F3"
+                           Padding="10,5" 
+                           PreviewTextInput="AmountSavingTextBox_PreviewTextInput"/>
+                    <TextBlock Text="Введіть додатну суму (напр., 100.00 або 100,00)" 
+                             FontSize="12" 
+                             Foreground="#999"
+                             Margin="0,5,0,0"/>
+                </StackPanel>
+
+                <!-- Повідомлення про помилку -->
+                <TextBlock x:Name="SavingErrorText" 
+                         Grid.Row="2" 
+                         Text="" 
+                         Foreground="Red" 
+                         HorizontalAlignment="Center" 
+                         FontSize="14" 
+                         Margin="0,0,0,20"
+                         TextAlignment="Center" 
+                         Visibility="Collapsed"/>
+
+                <!-- Кнопка збереження -->
+                <Button Grid.Row="3" 
+                       x:Name="SaveSavingButton"
+Content="ЗБЕРЕГТИ" 
+                       Width="200" 
+                       Height="45" 
+                       FontSize="18" 
+                       FontWeight="SemiBold"
+                       Background="#4CAF50" 
+                       Foreground="White" 
+                       BorderThickness="0"
+                       Margin="0,0,0,30" 
+                       Click="SaveSavingButton_Click"
+                       Cursor="Hand">
+                    <Button.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
+                    </Button.Effect>
+                </Button>
+
+                <!-- Інформація -->
+                <StackPanel Grid.Row="4" Orientation="Vertical" Margin="0,0,0,20">
+                    <TextBlock Text="Інформація:" 
+                             FontSize="16" 
+                             FontWeight="Bold" 
+                             Foreground="#666"
+                             Margin="0,0,0,10"/>
+                    <TextBlock Text="• Заощадження додаються до загального балансу" 
+                             FontSize="14" 
+                             Foreground="#666"
+                             Margin="10,0,0,5"/>
+                    <TextBlock Text="• Можна використати на цілі пізніше" 
+                             FontSize="14" 
+                             Foreground="#666"
+                             Margin="10,0,0,5"/>
+                    <TextBlock Text="• Сума має бути додатною" 
+                             FontSize="14" 
+                             Foreground="#666"
+                             Margin="10,0,0,5"/>
+                </StackPanel>
+
+                <!-- Кнопка повернення -->
+                <Button Grid.Row="5" 
+                       x:Name="ReturnsSavingButton" 
+                       Content="← НАЗАД" 
+                       Width="120" 
+                       Height="35" 
+                       FontSize="14"
+                       Background="#666666" 
+                       Foreground="White" 
+                       BorderThickness="0"
+                       HorizontalAlignment="Left" 
+                       VerticalAlignment="Bottom"
+                       Margin="0,0,0,10" 
+                       Click="ReturnsSavingButton_Click" 
+                       Cursor="Hand"/>
+            </Grid>
+        </Border>
+
+        <!-- Панель результатів -->
+        <Border Grid.Row="2" 
+                Background="#e8f5e8" 
+                Padding="20" 
+                Visibility="Collapsed"
+                x:Name="pnlResult">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                <TextBlock x:Name="txtResult" 
+                         Text="" 
+                         FontSize="18" 
+                         FontWeight="Bold"
+                         Foreground="#2E7D32"
+                         TextAlignment="Center"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>
