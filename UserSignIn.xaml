@@ -6,5 +6,98 @@
         xmlns:local="clr-namespace:t"
         mc:Ignorable="d"
         Title="UserSignIn" Width="1080" Height="700">
-   
+    <Window.Resources>
+        <Style x:Key="LinkButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="#3498DB"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <TextBlock TextDecorations="Underline"
+                               Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Background="White">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="400">
+
+            <TextBlock Text="Вхід в систему" 
+                  FontSize="28" 
+                  FontWeight="Bold" 
+                  HorizontalAlignment="Center" 
+                  Margin="0,0,0,30"
+                  Foreground="#2C3E50"/>
+
+            <TextBlock Text="Електронна пошта (Gmail)" 
+                  FontSize="14" 
+                  FontWeight="SemiBold"
+                  Margin="0,0,0,5"
+                  Foreground="#34495E"/>
+            <TextBox x:Name="GmailTextBox" 
+                Height="40" 
+                FontSize="14"
+                Padding="10"
+                TextChanged="GmailTextBox_TextChanged"/>
+            <TextBlock x:Name="GmailErrorText" 
+                  Foreground="Red" 
+                  FontSize="12" 
+                  Margin="0,5,0,10"
+                  Visibility="Collapsed"/>
+
+            <TextBlock Text="Пароль" 
+                  FontSize="14" 
+                  FontWeight="SemiBold"
+                  Margin="0,10,0,5"
+                  Foreground="#34495E"/>
+            <PasswordBox x:Name="PasswordBox" 
+                    Height="40" 
+                    FontSize="14"
+                    Padding="10"/>
+            <TextBlock x:Name="PasswordErrorText" 
+                  Foreground="Red" 
+                  FontSize="12" 
+                  Margin="0,5,0,10"
+                  Visibility="Collapsed"/>
+
+            <TextBlock x:Name="GeneralErrorText" 
+                  Foreground="Red" 
+                  FontSize="12" 
+                  Margin="0,10,0,10"
+                  TextWrapping="Wrap"
+                  Visibility="Collapsed"/>
+
+            <Button x:Name="SignInButton" 
+               Content="Увійти" 
+               Height="45" 
+               Background="#3498DB" 
+               Foreground="White" 
+               FontSize="16" 
+               FontWeight="Bold"
+               BorderThickness="0"
+               Margin="0,20,0,10"
+               Click="SignInButton_Click"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                <Button x:Name="ForgotPasswordButton" 
+                   Content="Забули пароль?" 
+                   Style="{StaticResource LinkButtonStyle}"
+                   Click="ForgotPasswordButton_Click"/>
+                <Button x:Name="RegistrationButton" 
+                   Content="Реєстрація" 
+                   Style="{StaticResource LinkButtonStyle}"
+Click="RegistrationButton_Click"/>
+            </StackPanel>
+
+        </StackPanel>
+    </Grid>
 </Window>
