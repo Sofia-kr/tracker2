@@ -9,7 +9,7 @@ namespace t
 {
     public partial class MainWindow : Window
     {
-        private string connectionString = "Server=sql7.freesqldatabase.com;Port=3306;user=sql7803706;Pwd=DrUIbcmB1f;Database=sql7803706;CharSet=utf8mb4;";
+        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
         private List<Transaction> transactions = new List<Transaction>();
         private PeriodType currentPeriod = PeriodType.Day;
         private ViewType currentViewType = ViewType.Expenses;
@@ -481,7 +481,7 @@ namespace t
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            Savings savingsWindow = new Savings(currentUserId);
+            Savings savingsWindow = new Savings();
             savingsWindow.ShowDialog();
             this.Close();
         }

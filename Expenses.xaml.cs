@@ -14,8 +14,7 @@ namespace t
     {
         private int currentUserId;
         private DateTime currentDate;
-        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7803706;password=DrUIbcmB1f;database=sql7803706;Charset=utf8mb4;";
-
+        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
         // Словники для зберігання категорій
         private Dictionary<string, CategoryInfo> expenseCategories = new Dictionary<string, CategoryInfo>();
         private Dictionary<string, CategoryInfo> incomeCategories = new Dictionary<string, CategoryInfo>();

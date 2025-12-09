@@ -16,7 +16,7 @@ namespace t
     public partial class ChecksData : Window
     {
         private int currentUserId;
-        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7803706;password=DrUIbcmB1f;database=sql7803706;Charset=utf8mb4;";
+        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
         private bool isExpensesMode = true;
         private CheckRecord selectedRecord = null;
 
