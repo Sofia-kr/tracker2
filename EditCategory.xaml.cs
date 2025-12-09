@@ -14,7 +14,7 @@ namespace t
     {
         private int currentUserId;
         private string currentCategoryType = "Expenses"; // Початковий тип - витрати
-        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7803706;password=DrUIbcmB1f;database=sql7803706;Charset=utf8mb4;";
+        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
 
         private Dictionary<int, CategoryInfo> categories = new Dictionary<int, CategoryInfo>();
         private Dictionary<string, string> iconDictionary = new Dictionary<string, string>();
