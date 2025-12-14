@@ -1,128 +1,235 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Window x:Class="t.Expenses"
+﻿<Window x:Class="t.Expenses"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:t"
-        mc:Ignorable="d"
-        Title="Запис" Height="1080" Width="1300"
-        KeyDown="Window_KeyDown">
-    <Grid Margin="40">
+        Title="Запис операцій" Height="725" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5"
+        MinHeight="700" MinWidth="1000"
+        Loaded="Window_Loaded">
+
+    <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Left">
-            <Button x:Name="ReturnButton" Content="←" 
-                 FontSize="24" Width="50" Height="50" 
-                 Background="#FFEAD2" BorderBrush="Gray"
-                 Click="ReturnExpenses_Click"/>
-        </StackPanel>
+        <!-- Заголовок -->
+        <Border Grid.Row="0" Background="#4A90E2" CornerRadius="5" Padding="15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-        <Grid Grid.Row="1" Margin="0,30,0,0">
+                <Button x:Name="ReturnButton" Content="←" 
+                     FontSize="24" Width="50" Height="50" 
+                     Background="Transparent" BorderBrush="Transparent"
+                     Foreground="White"
+                     Click="ReturnExpenses_Click"
+                     ToolTip="Повернутися назад"/>
+
+                <TextBlock Grid.Column="1" 
+                          Text="ЗАПИС" 
+                          FontSize="26" FontWeight="Bold" 
+                          Foreground="White" 
+                          VerticalAlignment="Center"
+                          HorizontalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Основна частина -->
+        <Grid Grid.Row="1" Margin="0,20,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*"/>
-                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="1.5*"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="50">
-                <TextBlock Text="Оберіть тип операції:" FontSize="20"/>
-                <ComboBox x:Name="ChoiceType" Width="250" Height="35" Margin="0,10,0,20"
-                          SelectionChanged="ChoiceType_SelectionChanged">
-                    <ComboBoxItem Content="Витрати"/>
-                    <ComboBoxItem Content="Доходи"/>
-                    <ComboBoxItem Content="Заощадження"/>
-                </ComboBox>
-
-                <!-- Загальний баланс -->
-                <TextBlock Text="Загальний баланс:" FontSize="20"/>
-                <TextBox x:Name="GeneralBalance" Width="250" Height="35" 
-                      IsReadOnly="True" Text="0.00" Margin="0,10,0,20"/>
-
-                <!-- Введення суми -->
-                <TextBlock Text="Введіть суму:" FontSize="20"/>
-                <TextBox x:Name="AmountInput" Width="250" Height="35" Margin="0,10,0,20"
-                         PreviewTextInput="AmountInput_PreviewTextInput"
-                         TextChanged="AmountInput_TextChanged"/>
-
-                <!-- Коментар -->
-                <TextBlock Text="Додати коментар:" FontSize="20"/>
-                <TextBox x:Name="CommentInput" Width="250" Height="35" 
-                      MaxLength="25" Margin="0,10,0,20"/>
-
-                <!-- Календар -->
-                <StackPanel Orientation="Horizontal" Margin="0,10,0,20">
-                    <TextBlock Text="Календар:" FontSize="20" VerticalAlignment="Center"/>
-                    <DatePicker x:Name="DatePicker" Width="200" Margin="20,0,0,0"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
-                    <StackPanel.Resources>
-                        <Style TargetType="Button">
-                            <Setter Property="Margin" Value="0,0,10,0"/>
-                        </Style>
-                    </StackPanel.Resources>
-                    <Button x:Name="SaveButton" Content="Записати" Width="120" Height="40" Click="SaveButton_Click"/>
-                    <Button x:Name="CancelButton" Content="Скасувати" Width="120" Height="40" Click="CancelButton_Click"/>
-                </StackPanel>
-            </StackPanel>
-
-            <!-- Права колонка - Категорії -->
-            <Border x:Name="CategoryPanel" Grid.Column="1" 
+            <!-- Ліва панель - Форма введення -->
+            <Border Grid.Column="0" 
                     Background="White" 
                     CornerRadius="10" 
-                    Padding="30">
+                    Padding="30"
+                    Margin="0,0,0,10">
+                <StackPanel>
+                    <!-- Тип операції -->
+                    <StackPanel Margin="0,0,0,15">
+                        <TextBlock Text="Тип операції:" 
+                                   FontSize="18" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#333333"/>
+                        <ComboBox x:Name="ChoiceType" 
+                                 Height="40" 
+                                 FontSize="16"
+                                 Margin="0,8,0,0"
+                                 SelectionChanged="ChoiceType_SelectionChanged">
+                            <ComboBoxItem Content="Витрати"/>
+                            <ComboBoxItem Content="Доходи"/>
+                            <ComboBoxItem Content="Заощадження"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <!-- Баланс (змінюється в залежності від типу операції) -->
+                    <StackPanel Margin="0,0,0,15">
+                        <TextBlock x:Name="BalanceTitle" 
+                                   Text="Загальний баланс:" 
+                                   FontSize="18" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#333333"/>
+                        <Border Background="#F0F0F0" 
+                                CornerRadius="5" 
+                                Height="40" 
+                                Margin="0,8,0,0">
+                            <TextBlock x:Name="GeneralBalance" 
+                                      Text="0.00" 
+                                      FontSize="18" 
+                                      FontWeight="Bold"
+                                      Foreground="#27AE60"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Сума -->
+                    <StackPanel Margin="0,0,0,15">
+                        <TextBlock Text="Сума:" 
+                                   FontSize="18" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#333333"/>
+                        <TextBox x:Name="AmountInput" 
+                                Height="40" 
+                                FontSize="16"
+                                Padding="10"
+                                Margin="0,8,0,0"
+                                PreviewTextInput="AmountInput_PreviewTextInput"
+                                TextChanged="AmountInput_TextChanged"
+                                Background="White"
+                                BorderBrush="#CCCCCC"
+                                BorderThickness="1"/>
+                    </StackPanel>
+
+                    <!-- Коментар -->
+                    <StackPanel x:Name="CommentPanel" Margin="0,0,0,15">
+                        <TextBlock Text="Коментар:" 
+                                   FontSize="18" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#333333"/>
+                        <TextBox x:Name="CommentInput" 
+                                Height="40" 
+                                FontSize="16"
+                                Padding="10"
+                                Margin="0,8,0,0"
+                                MaxLength="25"
+                                Background="White"
+                                BorderBrush="#CCCCCC"
+                                BorderThickness="1"/>
+                    </StackPanel>
+
+                    <!-- Дата -->
+                    <StackPanel Margin="0,0,0,15">
+                        <TextBlock Text="Дата:" 
+                                   FontSize="18" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#333333"/>
+                        <DatePicker x:Name="DatePicker" 
+                                   Height="40" 
+                                   FontSize="16"
+                                   Margin="0,8,0,0"/>
+                    </StackPanel>
+
+                    <!-- Кнопки -->
+                    <StackPanel Orientation="Horizontal" 
+                               HorizontalAlignment="Right"
+                               Margin="0,20,0,0">
+                        <Button x:Name="CancelButton" 
+                               Content="Скасувати" 
+                               Width="130" Height="45" 
+                               Margin="0,0,15,0"
+                               Click="CancelButton_Click"
+                               Background="#95A5A6" 
+                               Foreground="White"
+                               FontSize="16"/>
+                        <Button x:Name="SaveButton" 
+                               Content="Записати" 
+                               Width="130" Height="45" 
+                               Click="SaveButton_Click"
+                               Background="#27AE60" 
+                               Foreground="White"
+                               FontSize="16"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Права панель - Категорії -->
+            <Border Grid.Column="1" 
+                    Background="White" 
+                    CornerRadius="10" 
+                    Padding="25">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Заголовок категорій -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
-                        <TextBlock x:Name="CategoryTitle" Text="Категорії витрат" 
-                          FontSize="24" 
-                          FontWeight="Bold"
-                          Foreground="#FF2C3E50"/>
-                        <TextBlock x:Name="lblCategoryCount" 
-                          Text="" 
-                          FontSize="14" 
-                          Foreground="#FF7F8C8D"
-                          Margin="10,0,0,0"
-                          VerticalAlignment="Center"/>
+                    <!-- Заголовок -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock x:Name="CategoryTitle" 
+                                  Text="Категорії витрат" 
+                                  FontSize="22" 
+                                  FontWeight="Bold"
+                                  Foreground="#4A90E2"/>
+                        <TextBlock x:Name="CategoryCount" 
+                                  Text="(0 категорій)" 
+                                  FontSize="14" 
+                                  Foreground="#666666"/>
                     </StackPanel>
 
-                    <!-- Контейнер для кнопок категорій -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <!-- Список категорій -->
+                    <ScrollViewer Grid.Row="1" 
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Disabled">
                         <WrapPanel x:Name="CategoriesPanel" 
-                          Orientation="Horizontal" 
-                          HorizontalAlignment="Center"/>
+                                  Orientation="Horizontal"/>
                     </ScrollViewer>
 
+                    <!-- Кнопка додати категорію -->
+                    <Button x:Name="AddCategoryButton" 
+                           Grid.Row="2"
+                           Content="+ Додати категорію" 
+                           Height="45"
+                           Margin="0,15,0,0"
+                           Click="AddCategoryButton_Click"
+                           Background="#4A90E2"
+                           Foreground="White"
+                           FontSize="16"
+                           Visibility="Visible"/>
+
                     <!-- Інформація -->
-                    <Border Grid.Row="2" 
-                            Background="#FFECF0F1" 
-                            CornerRadius="8" 
-                            Padding="15" 
-                            Margin="0,20,0,0">
+                    <Border Grid.Row="3" 
+                           Background="#F0F7FF" 
+                           CornerRadius="8" 
+                           Padding="15" 
+                           Margin="0,20,0,0">
                         <StackPanel>
-                            <TextBlock x:Name="InfoTitle" Text="Інформація" 
-                              FontSize="14" 
-                              FontWeight="Bold"
-                              Margin="0,0,0,5"/>
-                            <TextBlock x:Name="InfoText1" Text="• Натисніть на категорію для вибору" 
-                              FontSize="12"/>
-                            <TextBlock x:Name="InfoText2" Text="• Клікніть '+' щоб додати нову категорію" 
-                              FontSize="12"/>
-                            <TextBlock x:Name="InfoText3" Text="• Максимум 12 категорій на тип" 
-                              FontSize="12"/>
+                            <TextBlock Text="❗ Інформація:" 
+                                     FontSize="14" 
+                                     FontWeight="Bold"
+                                     Margin="0,0,0,5"
+                                     Foreground="#4A90E2"/>
+                            <TextBlock Text="• Натисніть на категорію для вибору" 
+                                     FontSize="13" Margin="0,2"/>
+                            <TextBlock Text="• Клікніть 'Додати категорію' щоб створити нову" 
+                                     FontSize="13" Margin="0,2"/>
+                            <TextBlock Text="• Максимум 12 категорій на тип" 
+                                     FontSize="13" Margin="0,2"/>
                         </StackPanel>
                     </Border>
                 </Grid>
             </Border>
         </Grid>
+
+        <!-- Статусний бар -->
     </Grid>
 </Window>

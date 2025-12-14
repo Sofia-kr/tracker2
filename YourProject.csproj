@@ -1,0 +1,7 @@
+<ItemGroup>
+  <!-- remove the missing XAML from being compiled -->
+  <!-- Deleted: <Page Include="EditingUserData.xaml" /> -->
+  <Page Include="MainWindow.xaml" />
+  <Page Include="ChecksData.xaml" />
+  <!-- other pages -->
+</ItemGroup>

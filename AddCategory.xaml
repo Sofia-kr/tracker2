@@ -7,7 +7,8 @@
         mc:Ignorable="d"
         Title="Додати категорію" Height="800" Width="1080"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize">
+        ResizeMode="NoResize"
+        Background="#F5F5F5">
 
     <Grid Background="#FFF5F5F5">
         <Grid.RowDefinitions>
@@ -17,7 +18,7 @@
         </Grid.RowDefinitions>
 
         <!-- Заголовок -->
-        <Border Background="#FF4A90E2" Padding="20">
+        <Border Grid.Row="0" Background="#4A90E2" Padding="20">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="btnBack" Content="←" 
                         Width="40" Height="40" 
@@ -25,7 +26,7 @@
                         Foreground="White" FontSize="20"
                         Click="btnBack_Click"
                         Margin="0,0,20,0"/>
-                <TextBlock Text="ДОДАТИ КАТЕГОРІЮ" 
+                <TextBlock x:Name="windowTitle" 
                           FontSize="28" FontWeight="Bold" 
                           Foreground="White" VerticalAlignment="Center"/>
             </StackPanel>
@@ -80,12 +81,12 @@
                                Width="120" Height="35" 
                                Margin="0,0,10,0"
                                Click="btnEditCategory_Click"
-                               Background="#FF4A90E2" Foreground="White"/>
+                               Background="#4A90E2" Foreground="White"/>
                         <Button x:Name="btnDeleteCategory" 
                                Content="Видалити" 
                                Width="120" Height="35"
                                Click="btnDeleteCategory_Click"
-                               Background="#FFE74C3C" Foreground="White"/>
+                               Background="#E74C3C" Foreground="White"/>
                     </StackPanel>
                 </GroupBox>
 
@@ -137,20 +138,21 @@
                 </Border>
             </StackPanel>
         </Grid>
+
         <!-- Кнопки дій -->
-        <Border Grid.Row="2" Background="#FFEEEEEE" Padding="20">
+        <Border Grid.Row="2" Background="#EEEEEE" Padding="20">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="btnCancel" 
                        Content="Скасувати" 
                        Width="120" Height="40" 
                        Margin="0,0,15,0"
                        Click="btnCancel_Click"
-                       Background="#FF95A5A6" Foreground="White"/>
+                       Background="#95A5A6" Foreground="White"/>
                 <Button x:Name="btnSave" 
                        Content="Зберегти" 
                        Width="120" Height="40"
                        Click="btnSave_Click"
-                       Background="#FF27AE60" Foreground="White"/>
+                       Background="#27AE60" Foreground="White"/>
             </StackPanel>
         </Border>
     </Grid>

@@ -1,8 +1,8 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -24,15 +24,18 @@ namespace t
             "car-cog.png", "car-electric.png", "car-pickup.png", "cart-outline.png",
             "car-wrench.png", "cash.png", "cash-multiple.png", "coffee-outline.png",
             "cogs.png", "content-cut.png", "controller.png", "cookie-outline.png",
-            "credit-card-multiple-outline.png", "diamond-stone.png", "family.png", 
-            "flower-tulip-outline.png","food.png", "food-apple.png", "gas-station.png", 
-            "gift-outline.png","hand-coin-outline.png", "hanger.png", "home.png", 
+            "credit-card-multiple-outline.png", "diamond-stone.png", "family.png",
+            "flower-tulip-outline.png","food.png", "food-apple.png", "gas-station.png",
+            "gift-outline.png","hand-coin-outline.png", "hanger.png", "home.png",
             "medical-bag.png","sack.png", "store-outline.png", "teddy-bear.png",
             "theater.png","toothbrush-paste.png","treasure-chest.png","usd.png",
             "tshirt-crew.png","pill-multiple.png"
         };
 
-        public AddCategory(int userId, string type = "Expenses")
+        // Шлях до папки з іконками
+        private string iconsPath = @"C:\t\t\Properties\References\Categories\";
+
+        public AddCategory(int userId, string type)
         {
             InitializeComponent();
             currentUserId = userId;
@@ -42,11 +45,13 @@ namespace t
             {
                 rbIncome.IsChecked = true;
                 this.Title = "Додати категорію доходів";
+                windowTitle.Text = "ДОДАТИ КАТЕГОРІЮ ДОХОДІВ";
             }
             else
             {
                 rbExpenses.IsChecked = true;
                 this.Title = "Додати категорію витрат";
+                windowTitle.Text = "ДОДАТИ КАТЕГОРІЮ ВИТРАТ";
             }
 
             this.Loaded += AddCategory_Loaded;
@@ -54,7 +59,6 @@ namespace t
 
         private void AddCategory_Loaded(object sender, RoutedEventArgs e)
         {
-  
             isWindowLoaded = true;
             LoadAvailableIcons();
             UpdateUI();
@@ -67,7 +71,6 @@ namespace t
 
             foreach (string iconName in availableIcons)
             {
-                // Створюємо кнопку з іконкою
                 Button iconButton = new Button
                 {
                     Width = 80,
@@ -79,7 +82,6 @@ namespace t
                     Tag = iconName
                 };
 
-                // Створюємо StackPanel для іконки
                 StackPanel panel = new StackPanel
                 {
                     Orientation = Orientation.Vertical,
@@ -87,39 +89,56 @@ namespace t
                     VerticalAlignment = VerticalAlignment.Center
                 };
 
-                // Додаємо зображення
+                // Завантаження зображення
+                string iconPath = Path.Combine(iconsPath, iconName);
+                Image iconImage = new Image
+                {
+                    Width = 40,
+                    Height = 40,
+                    Stretch = Stretch.Uniform
+                };
+
                 try
                 {
-                    Image iconImage = new Image
+                    if (File.Exists(iconPath))
                     {
-                        Width = 40,
-                        Height = 40,
-                        Source = new BitmapImage(new Uri($"C:/t/t/Properties/References/Categories/{iconName}")),
-                        Stretch = Stretch.Uniform
-                    };
-                    panel.Children.Add(iconImage);
+                        iconImage.Source = new BitmapImage(new Uri(iconPath, UriKind.Absolute));
+                    }
+                    else
+                    {
+                        // Спробувати збільшені шляхи
+                        string altPath = $"C:/t/t/Properties/References/Categories/{iconName}";
+                        if (File.Exists(altPath))
+                        {
+                            iconImage.Source = new BitmapImage(new Uri(altPath, UriKind.Absolute));
+                        }
+                        else
+                        {
+                            CreateIconPlaceholder(panel, iconName);
+                        }
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Якщо зображення не знайдено, використовуємо текст
-                    TextBlock textIcon = new TextBlock
-                    {
-                        Text = "...",
-                        FontSize = 24,
-                        HorizontalAlignment = HorizontalAlignment.Center
-                    };
-                    panel.Children.Add(textIcon);
+                    Console.WriteLine($"Помилка завантаження іконки {iconName}: {ex.Message}");
+                    CreateIconPlaceholder(panel, iconName);
+                }
+
+                if (iconImage.Source != null)
+                {
+                    panel.Children.Add(iconImage);
                 }
 
                 // Додаємо назву файлу
-                string displayName = System.IO.Path.GetFileNameWithoutExtension(iconName);
+                string displayName = Path.GetFileNameWithoutExtension(iconName);
                 TextBlock iconText = new TextBlock
                 {
                     Text = displayName.Length > 8 ? displayName.Substring(0, 8) + "..." : displayName,
                     FontSize = 10,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     TextAlignment = TextAlignment.Center,
-                    Margin = new Thickness(0, 5, 0, 0)
+                    Margin = new Thickness(0, 5, 0, 0),
+                    TextWrapping = TextWrapping.Wrap
                 };
                 panel.Children.Add(iconText);
 
@@ -128,6 +147,27 @@ namespace t
 
                 iconGrid.Children.Add(iconButton);
             }
+        }
+
+        private void CreateIconPlaceholder(StackPanel panel, string iconName)
+        {
+            Border placeholder = new Border
+            {
+                Width = 40,
+                Height = 40,
+                Background = Brushes.LightGray,
+                CornerRadius = new CornerRadius(20),
+                Child = new TextBlock
+                {
+                    Text = iconName.Length > 0 ? iconName[0].ToString().ToUpper() : "?",
+                    FontSize = 20,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = Brushes.White
+                }
+            };
+            panel.Children.Add(placeholder);
         }
 
         private void IconButton_Click(object sender, RoutedEventArgs e)
@@ -144,11 +184,13 @@ namespace t
                     {
                         btn.Background = Brushes.Transparent;
                         btn.BorderBrush = Brushes.LightGray;
+                        btn.BorderThickness = new Thickness(1);
                     }
                 }
 
                 button.Background = new SolidColorBrush(Color.FromArgb(30, 74, 144, 226));
-                button.BorderBrush = Brushes.DodgerBlue;
+                button.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 74, 144, 226));
+                button.BorderThickness = new Thickness(2);
             }
         }
 
@@ -163,35 +205,58 @@ namespace t
             }
 
             selectedIconBorder.Visibility = Visibility.Visible;
-            selectedIconName.Text = System.IO.Path.GetFileNameWithoutExtension(selectedIcon);
+            selectedIconName.Text = Path.GetFileNameWithoutExtension(selectedIcon);
 
             try
             {
-                string packUri = $"C:/t/t/Properties/References/Categories/{selectedIcon}";
-                selectedIconImage.Source = new BitmapImage(new Uri(packUri, UriKind.Absolute));
-                return;
-            }
-            catch
-            {
-                // Ignore and try fallback
-            }
-
-            try
-            {
-                string filePath = System.IO.Path.Combine("C:/t/t/Properties/References/Categories", selectedIcon);
-                if (System.IO.File.Exists(filePath))
+                string iconPath = Path.Combine(iconsPath, selectedIcon);
+                if (File.Exists(iconPath))
                 {
-                    selectedIconImage.Source = new BitmapImage(new Uri(filePath, UriKind.Absolute));
+                    selectedIconImage.Source = new BitmapImage(new Uri(iconPath, UriKind.Absolute));
                 }
                 else
                 {
-                    selectedIconImage.Source = null;
+                    // Спробувати альтернативний шлях
+                    string altPath = $"C:/t/t/Properties/References/Categories/{selectedIcon}";
+                    if (File.Exists(altPath))
+                    {
+                        selectedIconImage.Source = new BitmapImage(new Uri(altPath, UriKind.Absolute));
+                    }
+                    else
+                    {
+                        CreateSelectedIconPlaceholder();
+                    }
                 }
             }
             catch
             {
-                selectedIconImage.Source = null;
+                CreateSelectedIconPlaceholder();
             }
+        }
+
+        private void CreateSelectedIconPlaceholder()
+        {
+            Border placeholder = new Border
+            {
+                Width = 50,
+                Height = 50,
+                Background = Brushes.LightGray,
+                CornerRadius = new CornerRadius(25),
+                Child = new TextBlock
+                {
+                    Text = selectedIcon.Length > 0 ? selectedIcon[0].ToString().ToUpper() : "?",
+                    FontSize = 24,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = Brushes.White
+                }
+            };
+
+            // Створюємо новий контейнер для placeholder
+            Grid container = new Grid();
+            container.Children.Add(placeholder);
+            selectedIconImage.Source = null;
         }
 
         private void LoadCategoryCount()
@@ -205,118 +270,68 @@ namespace t
                     string tableName = categoryType == "Income" ? "incomecategory" : "expensescategory";
                     string query = $"SELECT COUNT(*) FROM {tableName} WHERE IDuser = @userid";
 
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-
-                    int count = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblCategoryCount.Text = $"Поточні категорії: {count}/12";
-
-                    if (count >= 12)
+                    using (MySqlCommand cmd = new MySqlCommand(query, connection))
                     {
-                        btnSave.IsEnabled = false;
-                        btnSave.ToolTip = "Досягнуто максимальну кількість категорій (12)";
-                        ShowNotification("Досягнуто максимальну кількість категорій (12).", false);
-                    }
-                    else
-                    {
-                        btnSave.IsEnabled = true;
+                        cmd.Parameters.AddWithValue("@userid", currentUserId);
+                        int count = Convert.ToInt32(cmd.ExecuteScalar());
+                        lblCategoryCount.Text = $"Поточні категорії: {count}/12";
+
+                        if (count >= 12)
+                        {
+                            btnSave.IsEnabled = false;
+                            btnSave.ToolTip = "Досягнуто максимальну кількість категорій (12)";
+                        }
+                        else
+                        {
+                            btnSave.IsEnabled = true;
+                            btnSave.ToolTip = null;
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                ShowNotification($"Помилка завантаження кількості категорій: {ex.Message}", false);
+                MessageBox.Show($"Помилка завантаження кількості категорій: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private void UpdateUI()
         {
-            if (categoryType == "Income")
-            {
-                rbIncome.IsChecked = true;
-                LoadCategoryCount();
-            }
-            else
-            {
-                rbExpenses.IsChecked = true;
-                LoadCategoryCount();
-            }
+            LoadCategoryCount();
         }
 
         private void btnSave_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(txtCategoryName.Text))
             {
-                ShowNotification("❗ Введіть назву категорії!", false);
+                MessageBox.Show("❗ Введіть назву категорії!", "Помилка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 txtCategoryName.Focus();
                 return;
             }
 
             if (txtCategoryName.Text.Length < 2)
             {
-                ShowNotification("❗ Назва категорії повинна містити щонайменше 2 символи!", false);
+                MessageBox.Show("❗ Назва категорії повинна містити щонайменше 2 символи!", "Помилка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 txtCategoryName.Focus();
                 return;
             }
 
-            // Перевірка іконки
             if (string.IsNullOrEmpty(selectedIcon))
             {
-                ShowNotification("❗ Оберіть іконку для категорії!", false);
+                MessageBox.Show("❗ Оберіть іконку для категорії!", "Помилка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            // Перевірка кількості категорій
-            if (!CheckCategoryLimit())
-            {
-                return;
-            }
-
-            // Збереження в базу даних
             if (SaveCategoryToDatabase())
             {
-                ShowNotification("Категорію успішно додано!", true);
+                MessageBox.Show("Категорію успішно додано!", "Успіх", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 // Повертаємося на форму Expenses
-                Expenses expensesWindow = Application.Current.Windows.OfType<Expenses>().FirstOrDefault();
-                if (expensesWindow != null)
-                {
-                    expensesWindow.UpdateCategoryButtons();
-                }
-
+                Expenses expensesWindow = new Expenses(currentUserId, DateTime.Now,
+                    categoryType == "Expenses" ? ViewType.Expenses : ViewType.Income);
+                expensesWindow.ShowDialog();
                 this.Close();
-            }
-        }
-
-        private bool CheckCategoryLimit()
-        {
-            try
-            {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-
-                    string tableName = categoryType == "Income" ? "incomecategory" : "expensescategory";
-                    string query = $"SELECT COUNT(*) FROM {tableName} WHERE IDuser = @userid";
-
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-
-                    int count = Convert.ToInt32(cmd.ExecuteScalar());
-
-                    if (count >= 12)
-                    {
-                        ShowNotification("Досягнуто максимальну кількість категорій (12).", false);
-                        return false;
-                    }
-
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                ShowNotification($"Помилка перевірки ліміту: {ex.Message}", false);
-                return false;
             }
         }
 
@@ -328,105 +343,104 @@ namespace t
                 {
                     connection.Open();
 
-                    string tableName, columnImage, columnName;
+                    string tableName, columnImage, columnName, idColumn;
 
                     if (categoryType == "Income")
                     {
                         tableName = "incomecategory";
                         columnImage = "ImageIncome";
                         columnName = "CNameIncome";
+                        idColumn = "IDcategory";
                     }
                     else
                     {
                         tableName = "expensescategory";
                         columnImage = "ImageExpenses";
                         columnName = "CNameExpenses";
+                        idColumn = "IDcategory";
                     }
 
-                    // Перевірка, чи не існує вже категорія з такою назвою
+                    // Перевірка на унікальність назви
                     string checkQuery = $"SELECT COUNT(*) FROM {tableName} WHERE {columnName} = @name AND IDuser = @userid";
-                    MySqlCommand checkCmd = new MySqlCommand(checkQuery, connection);
-                    checkCmd.Parameters.AddWithValue("@name", txtCategoryName.Text.Trim());
-                    checkCmd.Parameters.AddWithValue("@userid", currentUserId);
-
-                    int existingCount = Convert.ToInt32(checkCmd.ExecuteScalar());
-
-                    if (existingCount > 0)
+                    using (MySqlCommand checkCmd = new MySqlCommand(checkQuery, connection))
                     {
-                        ShowNotification("Категорія з такою назвою вже існує!", false);
-                        return false;
+                        checkCmd.Parameters.AddWithValue("@name", txtCategoryName.Text.Trim());
+                        checkCmd.Parameters.AddWithValue("@userid", currentUserId);
+
+                        if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
+                        {
+                            MessageBox.Show("Категорія з такою назвою вже існує!", "Помилка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            return false;
+                        }
                     }
 
                     // Додавання нової категорії
-                    string insertQuery = $"INSERT INTO {tableName} ({columnImage}, {columnName}, IDuser) VALUES (@image, @name, @userid)";
+                    if (categoryType == "Income")
+                    {
+                        // Для incomecategory потрібно отримати наступний ID
+                        string maxIdQuery = $"SELECT MAX({idColumn}) FROM {tableName} WHERE IDuser = @userid";
+                        int nextId = 1;
+                        using (MySqlCommand maxIdCmd = new MySqlCommand(maxIdQuery, connection))
+                        {
+                            maxIdCmd.Parameters.AddWithValue("@userid", currentUserId);
+                            object result = maxIdCmd.ExecuteScalar();
+                            if (result != null && result != DBNull.Value)
+                            {
+                                nextId = Convert.ToInt32(result) + 1;
+                            }
+                        }
 
-                    MySqlCommand cmd = new MySqlCommand(insertQuery, connection);
-                    cmd.Parameters.AddWithValue("@image", selectedIcon);
-                    cmd.Parameters.AddWithValue("@name", txtCategoryName.Text.Trim());
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
+                        // Перевіряємо, чи існує вже такий ID в усій таблиці
+                        string checkIdQuery = $"SELECT COUNT(*) FROM {tableName} WHERE {idColumn} = @id";
+                        using (MySqlCommand checkIdCmd = new MySqlCommand(checkIdQuery, connection))
+                        {
+                            checkIdCmd.Parameters.AddWithValue("@id", nextId);
+                            int existingIdCount = Convert.ToInt32(checkIdCmd.ExecuteScalar());
 
-                    int rowsAffected = cmd.ExecuteNonQuery();
+                            // Якщо ID вже існує, шукаємо вільний ID
+                            while (existingIdCount > 0)
+                            {
+                                nextId++;
+                                checkIdCmd.Parameters["@id"].Value = nextId;
+                                existingIdCount = Convert.ToInt32(checkIdCmd.ExecuteScalar());
+                            }
+                        }
 
-                    return rowsAffected > 0;
+                        string insertQuery = $"INSERT INTO {tableName} (IDcategory, IDuser, {columnImage}, {columnName}) VALUES (@id, @userid, @image, @name)";
+                        using (MySqlCommand cmd = new MySqlCommand(insertQuery, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@id", nextId);
+                            cmd.Parameters.AddWithValue("@userid", currentUserId);
+                            cmd.Parameters.AddWithValue("@image", selectedIcon);
+                            cmd.Parameters.AddWithValue("@name", txtCategoryName.Text.Trim());
+                            return cmd.ExecuteNonQuery() > 0;
+                        }
+                    }
+                    else
+                    {
+                        // Для expensescategory IDcategory є AUTO_INCREMENT
+                        string insertQuery = $"INSERT INTO {tableName} (IDuser, {columnImage}, {columnName}) VALUES (@userid, @image, @name)";
+                        using (MySqlCommand cmd = new MySqlCommand(insertQuery, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@userid", currentUserId);
+                            cmd.Parameters.AddWithValue("@image", selectedIcon);
+                            cmd.Parameters.AddWithValue("@name", txtCategoryName.Text.Trim());
+                            return cmd.ExecuteNonQuery() > 0;
+                        }
+                    }
                 }
             }
             catch (MySqlException mysqlEx)
             {
-                ShowNotification($"Помилка бази даних: {mysqlEx.Message}", false);
+                MessageBox.Show($"Помилка бази даних: {mysqlEx.Message}\nКод помилки: {mysqlEx.Number}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
             catch (Exception ex)
             {
-                ShowNotification($"Помилка збереження: {ex.Message}", false);
+                MessageBox.Show($"Помилка збереження: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
-            }
-        }
-
-        private void ShowNotification(string message, bool isSuccess)
-        {
-            var brush = isSuccess ? Brushes.Green : Brushes.Red;
-
-            // Створюємо сповіщення
-            Border notification = new Border
-            {
-                Background = isSuccess ? Brushes.LightGreen : Brushes.LightCoral,
-                BorderBrush = brush,
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(5),
-                Padding = new Thickness(15),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 10, 0, 0)
-            };
-
-            TextBlock textBlock = new TextBlock { Text = message, FontSize = 14, Foreground = brush, FontWeight = FontWeights.SemiBold };
-
-            notification.Child = textBlock;
-
-            // Додаємо сповіщення до вікна
-            if (this.Content is Grid mainGrid)
-            {
-                // Видаляємо попереднє сповіщення
-                var oldNotification = mainGrid.Children.OfType<Border>()
-                    .FirstOrDefault(b => b.Name == "notificationBorder");
-                if (oldNotification != null)
-                {
-                    mainGrid.Children.Remove(oldNotification);
-                }
-
-                notification.Name = "notificationBorder";
-                Grid.SetRowSpan(notification, 3);
-                mainGrid.Children.Add(notification);
-
-                // Автоматичне приховування через 3 секунди
-                System.Windows.Threading.DispatcherTimer timer = new System.Windows.Threading.DispatcherTimer();
-                timer.Interval = TimeSpan.FromSeconds(3);
-                timer.Tick += (s, args) =>
-                {
-                    mainGrid.Children.Remove(notification);
-                    timer.Stop();
-                };
-                timer.Start();
             }
         }
 
@@ -445,11 +459,13 @@ namespace t
             EditCategory editWindow = new EditCategory(currentUserId);
             editWindow.ShowDialog();
             LoadCategoryCount();
+            this.Close();
         }
 
         private void btnDeleteCategory_Click(object sender, RoutedEventArgs e)
         {
             DeleteCategory deleteWindow = new DeleteCategory(currentUserId);
+            deleteWindow.Owner = this;
             deleteWindow.ShowDialog();
             LoadCategoryCount();
         }
@@ -461,10 +477,12 @@ namespace t
             if (rbExpenses.IsChecked == true)
             {
                 categoryType = "Expenses";
+                windowTitle.Text = "ДОДАТИ КАТЕГОРІЮ ВИТРАТ";
             }
             else if (rbIncome.IsChecked == true)
             {
                 categoryType = "Income";
+                windowTitle.Text = "ДОДАТИ КАТЕГОРІЮ ДОХОДІВ";
             }
 
             UpdateUI();
@@ -496,7 +514,8 @@ namespace t
                 if (!char.IsLetterOrDigit(c) && !char.IsWhiteSpace(c) && c != '-')
                 {
                     e.Handled = true;
-                    ShowNotification("❗ Назва може містити тільки літери, цифри та пробіли!", false);
+                    MessageBox.Show("Назва може містити тільки літери, цифри та пробіли!", "Помилка",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
             }
@@ -504,20 +523,11 @@ namespace t
             if (txtCategoryName.Text.Length + e.Text.Length > 13)
             {
                 e.Handled = true;
-                ShowNotification("❗ Максимальна довжина назви - 13 символів!", false);
+                MessageBox.Show("Максимальна довжина назви - 13 символів!", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
-        private void Window_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter && btnSave.IsEnabled)
-            {
-                btnSave_Click(sender, e);
-            }
-            else if (e.Key == Key.Escape)
-            {
-                this.Close();
-            }
-        }
+       
     }
 }

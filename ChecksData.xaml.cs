@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,14 +14,23 @@ using System.Windows.Media.Imaging;
 
 namespace t
 {
-    public partial class ChecksData : Window
+        public partial class ChecksData : Window
     {
         private int currentUserId;
         private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
-        private bool isExpensesMode = true;
-        private CheckRecord selectedRecord = null;
 
-        // Клас для представлення запису
+        // Додаємо шлях до іконок
+        private string iconsPath = @"C:\t\t\Properties\References\Categories\";
+
+        private enum DataMode { Expenses, Income, Savings }
+        private DataMode currentMode = DataMode.Expenses;
+
+        private CheckRecord selectedRecord = null;
+        private DateTime filterStartDate;
+        private DateTime filterEndDate;
+        private bool hasUnsavedChanges = false;
+        private Dictionary<int, CheckRecord> changedRecords = new Dictionary<int, CheckRecord>();
+
         public class CheckRecord : INotifyPropertyChanged
         {
             private int _id;
@@ -48,11 +58,9 @@ namespace t
                     _categoryImage = value;
                     OnPropertyChanged(nameof(CategoryImage));
                     OnPropertyChanged(nameof(CategoryImageFullPath));
-                    OnPropertyChanged(nameof(CategoryImagePathForBinding));
                 }
             }
 
-            // Повний шлях до зображення
             public string CategoryImageFullPath
             {
                 get
@@ -62,8 +70,27 @@ namespace t
 
                     try
                     {
-                        // Абсолютний шлях до папки з зображеннями
-                        return $"C:/t/t/Properties/References/Categories/{_categoryImage}";
+                        // Спробуємо кілька можливих шляхів
+                        string[] possiblePaths =
+                        {
+                            System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                                "Properties", "References", "Categories", _categoryImage),
+                            System.IO.Path.Combine(Environment.CurrentDirectory,
+                                "Properties", "References", "Categories", _categoryImage),
+                            @"C:\t\t\Properties\References\Categories\" + _categoryImage,
+                            @"C:/t/t/Properties/References/Categories/" + _categoryImage
+                        };
+
+                        foreach (string path in possiblePaths)
+                        {
+                            if (File.Exists(path))
+                            {
+                                return path;
+                            }
+                        }
+
+                        // Якщо файл не знайдено, повертаємо порожній рядок
+                        return string.Empty;
                     }
                     catch
                     {
@@ -71,37 +98,6 @@ namespace t
                     }
                 }
             }
-
-            // Метод для отримання шляху до зображення з урахуванням значення за замовчуванням
-            public string GetCategoryImagePath()
-            {
-                // Якщо шлях до зображення порожній або null
-                if (string.IsNullOrEmpty(CategoryImageFullPath))
-                {
-                    // Повертаємо шлях до зображення за замовчуванням
-                    return GetDefaultCategoryImagePath();
-                }
-
-                // Перевіряємо, чи існує файл за вказаним шляхом
-                if (!System.IO.File.Exists(CategoryImageFullPath))
-                {
-                    // Якщо файл не існує, повертаємо шлях за замовчуванням
-                    return GetDefaultCategoryImagePath();
-                }
-
-                // Якщо все добре, повертаємо оригінальний шлях
-                return CategoryImageFullPath;
-            }
-
-            // Метод для отримання шляху до зображення за замовчуванням
-            private string GetDefaultCategoryImagePath()
-            {
-                // Повертаємо шлях до зображення за замовчуванням
-                return "C:/t/t/Properties/References/Categories/dots-vertical.png";
-            }
-
-            // Властивість для зв'язування, яка використовує метод GetCategoryImagePath
-            public string CategoryImagePathForBinding => GetCategoryImagePath();
 
             public string CategoryName
             {
@@ -131,6 +127,7 @@ namespace t
                     _amount = value;
                     OnPropertyChanged(nameof(Amount));
                     OnPropertyChanged(nameof(FormattedAmount));
+                    OnPropertyChanged(nameof(AmountColor));
                 }
             }
 
@@ -157,8 +154,19 @@ namespace t
                 {
                     _date = value;
                     OnPropertyChanged(nameof(Date));
+                    OnPropertyChanged(nameof(FormattedDate));
                 }
             }
+
+            public string FormattedDate
+            {
+                get
+                {
+                    return Date.ToString("dd.MM.yyyy");
+                }
+            }
+
+            public string Type { get; set; } // "expenses", "income", "savings"
 
             public event PropertyChangedEventHandler PropertyChanged;
 
@@ -168,76 +176,46 @@ namespace t
             }
         }
 
-        // Клас конвертера для зображень (можна використовувати замість методу)
-        public class CategoryImageConverter : IValueConverter
-        {
-            public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-            {
-                if (value is CheckRecord checkData)
-                {
-                    // Викликаємо метод GetCategoryImagePath() об'єкта CheckData
-                    return checkData.GetCategoryImagePath();
-                }
-                else if (value is string imagePath)
-                {
-                    // Якщо передано рядок (шлях)
-                    if (string.IsNullOrEmpty(imagePath))
-                    {
-                        return "C:/t/t/Properties/References/Categories/dots-vertical.png";
-                    }
-
-                    // Перевіряємо, чи існує файл
-                    if (!System.IO.File.Exists(imagePath))
-                    {
-                        return "C:/t/t/Properties/References/Categories/dots-vertical.png";
-                    }
-
-                    return imagePath;
-                }
-
-                return "C:/t/t/Properties/References/Categories/dots-vertical.png";
-            }
-
-            public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        public ChecksData(int userId)
+        public ChecksData(int userId, DateTime startDate, DateTime endDate)
         {
             try
             {
                 InitializeComponent();
-                Console.WriteLine("InitializeComponent викликано успішно");
-
-                // Перевіряємо чи завантажились елементи
-                if (btnDelete == null)
-                {
-                    MessageBox.Show("Помилка: кнопка btnDelete не знайдена в XAML. Будь ласка, перевірте XAML файл.",
-                        "Помилка ініціалізації", MessageBoxButton.OK, MessageBoxImage.Error);
-
-                    // Створюємо кнопку програмно
-                    CreateDeleteButtonProgrammatically();
-                }
-
                 currentUserId = userId;
+                filterStartDate = startDate;
+                filterEndDate = endDate;
 
-                // Встановлюємо обробники подій
+                // Ініціалізуємо заголовок таблиці
+                if (tblTableTitle != null)
+                    tblTableTitle.Text = "ВИТРАТИ";
+
+                // Додаємо обробники для RadioButton
+                if (rbExpenses != null)
+                    rbExpenses.Checked += RbExpenses_Checked;
+                if (rbIncome != null)
+                    rbIncome.Checked += RbIncome_Checked;
+                if (rbSavings != null)
+                    rbSavings.Checked += RbSavings_Checked;
+
                 if (dgChecks != null)
                 {
                     dgChecks.MouseDoubleClick += DgChecks_MouseDoubleClick;
                     dgChecks.CellEditEnding += DgChecks_CellEditEnding;
+                    dgChecks.SelectionChanged += DgChecks_SelectionChanged;
                 }
 
-                // Ініціалізуємо кнопку delete
                 if (btnDelete != null)
                 {
                     btnDelete.Visibility = Visibility.Collapsed;
                 }
 
-                // Завантажуємо записи витрат за замовчуванням
+                if (btnBack != null)
+                    btnBack.Click += BtnClose_Click;
+
+               
                 LoadExpensesChecks();
+                UpdateColumnsVisibility(); // Оновлюємо видимість колонок
+                this.Closing += ChecksData_Closing;
             }
             catch (Exception ex)
             {
@@ -247,55 +225,80 @@ namespace t
             }
         }
 
-        private void CreateDeleteButtonProgrammatically()
+        private void ChecksData_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            // Створюємо кнопку програмно
-            btnDelete = new Button
+            if (hasUnsavedChanges)
             {
-                Name = "btnDelete",
-                Content = "ВИДАЛИТИ ЗАПИС",
-                Width = 150,
-                Height = 40,
-                Margin = new Thickness(10),
-                Background = new SolidColorBrush(Color.FromRgb(255, 68, 68)),
-                Foreground = Brushes.White,
-                FontWeight = FontWeights.Bold,
-                Visibility = Visibility.Collapsed
-            };
+                MessageBoxResult result = MessageBox.Show(
+                    "У вас є незбереженні зміни. Зберегти перед закриттям?",
+                    "Незбережені зміни",
+                    MessageBoxButton.YesNoCancel,
+                    MessageBoxImage.Question);
 
-            btnDelete.Click += BtnDelete_Click;
-
-            // Знаходимо StackPanel для кнопок
-            if (VisualTreeHelper.GetChildrenCount(this) > 0)
-            {
-                var mainGrid = VisualTreeHelper.GetChild(this, 0) as Grid;
-                if (mainGrid != null && VisualTreeHelper.GetChildrenCount(mainGrid) > 3)
+                if (result == MessageBoxResult.Yes)
                 {
-                    var lastBorder = VisualTreeHelper.GetChild(mainGrid, 3) as Border;
-                    if (lastBorder != null && lastBorder.Child is StackPanel panel)
-                    {
-                        panel.Children.Insert(0, btnDelete);
-                    }
+                    SaveAllChanges();
+                }
+                else if (result == MessageBoxResult.Cancel)
+                {
+                    e.Cancel = true;
                 }
             }
         }
 
         private void RbExpenses_Checked(object sender, RoutedEventArgs e)
         {
-            isExpensesMode = true;
-            if (txtInstruction != null)
-                txtInstruction.Text = "Перегляньте та редагуйте ваші витрати";
+            currentMode = DataMode.Expenses;
+            if (tblTableTitle != null)
+                tblTableTitle.Text = "ВИТРАТИ";
             LoadExpensesChecks();
             ResetSelection();
+            UpdateColumnsVisibility();
         }
 
         private void RbIncome_Checked(object sender, RoutedEventArgs e)
         {
-            isExpensesMode = false;
-            if (txtInstruction != null)
-                txtInstruction.Text = "Перегляньте та редагуйте ваші доходи";
+            currentMode = DataMode.Income;
+            if (tblTableTitle != null)
+                tblTableTitle.Text = "ДОХОДИ";
             LoadIncomeChecks();
             ResetSelection();
+            UpdateColumnsVisibility();
+        }
+
+        private void RbSavings_Checked(object sender, RoutedEventArgs e)
+        {
+            currentMode = DataMode.Savings;
+            if (tblTableTitle != null)
+                tblTableTitle.Text = "ЗАОЩАДЖЕННЯ";
+            LoadSavingsChecks();
+            ResetSelection();
+            UpdateColumnsVisibility();
+        }
+
+        private void UpdateColumnsVisibility()
+        {
+            if (dgChecks == null || dgChecks.Columns.Count < 6) return;
+
+            bool isSavingsMode = currentMode == DataMode.Savings;
+
+            // Оновлюємо видимість колонок
+            // Колонки: 0-Id, 1-Зображення, 2-Категорія, 3-Коментар, 4-Сума, 5-Дата
+            dgChecks.Columns[1].Visibility = isSavingsMode ? Visibility.Collapsed : Visibility.Visible; // Зображення
+            dgChecks.Columns[2].Visibility = isSavingsMode ? Visibility.Collapsed : Visibility.Visible; // Категорія
+            dgChecks.Columns[3].Visibility = isSavingsMode ? Visibility.Collapsed : Visibility.Visible; // Коментар
+
+            // Оновлюємо ширину колонок
+            if (isSavingsMode)
+            {
+                dgChecks.Columns[4].Width = new DataGridLength(1.5, DataGridLengthUnitType.Star); // Сума
+                dgChecks.Columns[5].Width = new DataGridLength(1, DataGridLengthUnitType.Star); // Дата
+            }
+            else
+            {
+                dgChecks.Columns[4].Width = new DataGridLength(1, DataGridLengthUnitType.Star); // Сума
+                dgChecks.Columns[5].Width = new DataGridLength(0.8, DataGridLengthUnitType.Star); // Дата
+            }
         }
 
         private void ResetSelection()
@@ -304,7 +307,6 @@ namespace t
             {
                 selectedRecord = null;
 
-                // Додайте перевірку на null
                 if (btnDelete != null)
                 {
                     btnDelete.Visibility = Visibility.Collapsed;
@@ -331,25 +333,18 @@ namespace t
                 {
                     connection.Open();
 
-                    // Перевіряємо, чи є стовпець CommentExpenses
-                    string commentColumn = "'' as CommentExpenses";
-                    string checkColumnQuery = "SHOW COLUMNS FROM expenses LIKE 'CommentExpenses'";
-                    MySqlCommand checkCmd = new MySqlCommand(checkColumnQuery, connection);
-                    var result = checkCmd.ExecuteScalar();
-                    if (result != null)
-                    {
-                        commentColumn = "COALESCE(CommentExpenses, '') as CommentExpenses";
-                    }
-
-                    string query = $@"
-                    SELECT e.IDexpense, e.CategotyImageExpenses, e.CategoryNameExpenses, 
-                           e.AmoutExpenses, e.ExpenseDate, {commentColumn}
-                    FROM expenses e
-                    WHERE e.IDuser = @userid
-                    ORDER BY e.ExpenseDate DESC, e.IDexpense DESC";
+                    string query = @"
+                SELECT e.IDexpenses, e.CategoryImageExpenses, e.CategoryNameExpenses, 
+                       e.AmoutExpenses, e.ExpenseDate, e.CommentExpenses
+                FROM expenses e
+                WHERE e.IDuser = @userid
+                AND e.ExpenseDate BETWEEN @startDate AND @endDate
+                ORDER BY e.ExpenseDate DESC, e.IDexpenses DESC";
 
                     MySqlCommand cmd = new MySqlCommand(query, connection);
                     cmd.Parameters.AddWithValue("@userid", currentUserId);
+                    cmd.Parameters.AddWithValue("@startDate", filterStartDate);
+                    cmd.Parameters.AddWithValue("@endDate", filterEndDate);
 
                     using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
@@ -357,12 +352,13 @@ namespace t
                         {
                             CheckRecord record = new CheckRecord
                             {
-                                Id = reader.GetInt32("IDexpense"),
-                                CategoryImage = reader["CategotyImageExpenses"].ToString(),
+                                Id = reader.GetInt32("IDexpenses"),
+                                CategoryImage = reader["CategoryImageExpenses"].ToString(),
                                 CategoryName = reader["CategoryNameExpenses"].ToString(),
-                                Amount = -Math.Abs(reader.GetDecimal("AmoutExpenses")), // Мінус для витрат
+                                Amount = -Math.Abs(reader.GetDecimal("AmoutExpenses")),
                                 Date = reader.GetDateTime("ExpenseDate"),
-                                Comment = reader["CommentExpenses"].ToString()
+                                Comment = reader["CommentExpenses"].ToString(),
+                                Type = "expenses"
                             };
 
                             records.Add(record);
@@ -370,18 +366,11 @@ namespace t
                     }
                 }
 
-                // Перевіряємо, чи є записи
-                if (records.Count == 0)
-                {
-                    ShowNoRecordsMessage("Витрат не було");
-                }
-                else
-                {
                     if (dgChecks != null)
                     {
                         dgChecks.ItemsSource = records;
                     }
-                }
+                
             }
             catch (Exception ex)
             {
@@ -405,10 +394,13 @@ namespace t
                            i.AmountIncome, i.IncomeDate, COALESCE(i.CommentIncome, '') as CommentIncome
                     FROM income i
                     WHERE i.IDuser = @userid
+                    AND i.IncomeDate BETWEEN @startDate AND @endDate
                     ORDER BY i.IncomeDate DESC, i.IDincome DESC";
 
                     MySqlCommand cmd = new MySqlCommand(query, connection);
                     cmd.Parameters.AddWithValue("@userid", currentUserId);
+                    cmd.Parameters.AddWithValue("@startDate", filterStartDate);
+                    cmd.Parameters.AddWithValue("@endDate", filterEndDate);
 
                     using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
@@ -419,9 +411,10 @@ namespace t
                                 Id = reader.GetInt32("IDincome"),
                                 CategoryImage = reader["CategoryImageIncome"].ToString(),
                                 CategoryName = reader["CategoryNameIncome"].ToString(),
-                                Amount = Math.Abs(reader.GetDecimal("AmountIncome")), // Плюс для доходів
+                                Amount = Math.Abs(reader.GetDecimal("AmountIncome")),
                                 Date = reader.GetDateTime("IncomeDate"),
-                                Comment = reader["CommentIncome"].ToString()
+                                Comment = reader["CommentIncome"].ToString(),
+                                Type = "income"
                             };
 
                             records.Add(record);
@@ -429,18 +422,12 @@ namespace t
                     }
                 }
 
-                // Перевіряємо, чи є записи
-                if (records.Count == 0)
-                {
-                    ShowNoRecordsMessage("Доходів не було");
-                }
-                else
-                {
+               
                     if (dgChecks != null)
                     {
                         dgChecks.ItemsSource = records;
                     }
-                }
+                
             }
             catch (Exception ex)
             {
@@ -449,33 +436,99 @@ namespace t
             }
         }
 
+        private void LoadSavingsChecks()
+        {
+            try
+            {
+                List<CheckRecord> records = new List<CheckRecord>();
+
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    string query = @"
+                    SELECT s.IDsaving, s.AmoutSaving, s.SavingDate
+                    FROM saving s
+                    WHERE s.IDuser = @userid
+                    AND s.SavingDate BETWEEN @startDate AND @endDate
+                    ORDER BY s.SavingDate DESC, s.IDsaving DESC";
+
+                    MySqlCommand cmd = new MySqlCommand(query, connection);
+                    cmd.Parameters.AddWithValue("@userid", currentUserId);
+                    cmd.Parameters.AddWithValue("@startDate", filterStartDate);
+                    cmd.Parameters.AddWithValue("@endDate", filterEndDate);
+
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            CheckRecord record = new CheckRecord
+                            {
+                                Id = reader.GetInt32("IDsaving"),
+                                CategoryImage = "",
+                                CategoryName = "Заощадження",
+                                Amount = reader.GetDecimal("AmoutSaving"),
+                                Date = reader.GetDateTime("SavingDate"),
+                                Comment = "",
+                                Type = "savings"
+                            };
+
+                            records.Add(record);
+                        }
+                    }
+                }
+
+                
+                    if (dgChecks != null)
+                    {
+                        dgChecks.ItemsSource = records;
+                    }
+                
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка завантаження заощаджень: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void ShowNoRecordsMessage(string message)
         {
             if (dgChecks != null)
             {
-                // Очищаємо DataGrid
                 dgChecks.ItemsSource = null;
+
+                // Очищаємо колонки
                 dgChecks.Columns.Clear();
 
-                // Створюємо одну колонку з повідомленням
-                DataGridTextColumn messageColumn = new DataGridTextColumn();
+                // Створюємо шаблонну колонку
+                DataGridTemplateColumn messageColumn = new DataGridTemplateColumn();
                 messageColumn.Header = "Повідомлення";
-                messageColumn.Binding = new System.Windows.Data.Binding(".");
+                messageColumn.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
 
-                // Додаємо стиль для центрування тексту
-                Style cellStyle = new Style(typeof(TextBlock));
-                cellStyle.Setters.Add(new Setter(TextBlock.TextProperty, message));
-                cellStyle.Setters.Add(new Setter(TextBlock.FontSizeProperty, 18.0));
-                cellStyle.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.Bold));
-                cellStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty, Brushes.Gray));
-                cellStyle.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center));
-                cellStyle.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
-                cellStyle.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
+                // Створюємо DataTemplate для комірки
+                DataTemplate cellTemplate = new DataTemplate();
 
-                messageColumn.CellStyle = cellStyle;
+                // Створюємо фабрику для TextBlock
+                FrameworkElementFactory textBlockFactory = new FrameworkElementFactory(typeof(TextBlock));
+                textBlockFactory.SetValue(TextBlock.TextProperty, message);
+                textBlockFactory.SetValue(TextBlock.FontSizeProperty, 18.0);
+                textBlockFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
+                textBlockFactory.SetValue(TextBlock.ForegroundProperty, Brushes.Gray);
+                textBlockFactory.SetValue(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+                textBlockFactory.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+                textBlockFactory.SetValue(TextBlock.TextAlignmentProperty, TextAlignment.Center);
+                textBlockFactory.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
 
+                // Встановлюємо фабрику як візуальне дерево шаблону
+                cellTemplate.VisualTree = textBlockFactory;
+                messageColumn.CellTemplate = cellTemplate;
+
+                // Додаємо колонку
                 dgChecks.Columns.Add(messageColumn);
-                dgChecks.ItemsSource = new List<string> { message };
+
+                // Створюємо список з одним елементом для відображення рядка
+                dgChecks.ItemsSource = new List<object> { new { } };
             }
         }
 
@@ -483,11 +536,7 @@ namespace t
         {
             try
             {
-                if (btnDelete == null)
-                {
-                    Console.WriteLine("Попередження: btnDelete є null в DgChecks_SelectionChanged");
-                    return;
-                }
+                if (btnDelete == null) return;
 
                 if (dgChecks != null && dgChecks.SelectedItem is CheckRecord record)
                 {
@@ -507,11 +556,9 @@ namespace t
 
         private void DgChecks_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            // Перевіряємо, чи DataGrid не null і чи є реальні записи
             if (dgChecks == null || dgChecks.ItemsSource == null || dgChecks.Items.Count == 0)
                 return;
 
-            // Знаходимо клітинку, по якій клікнули
             DependencyObject dep = (DependencyObject)e.OriginalSource;
             while (dep != null && !(dep is DataGridCell))
             {
@@ -520,50 +567,69 @@ namespace t
 
             if (dep is DataGridCell cell)
             {
-                // Визначаємо колонку
+                // У нашому XAML: 0-Id (прихована), 1-Зображення, 2-Категорія, 3-Коментар, 4-Сума, 5-Дата
                 int columnIndex = cell.Column.DisplayIndex;
 
-                // Якщо це колонка коментаря (індекс 2) або суми (індекс 3)
-                if (columnIndex == 2 || columnIndex == 3)
+                // Дозволяємо редагувати коментар (колонка 3) та суму (колонка 4)
+                if (columnIndex == 3 || columnIndex == 4)
                 {
                     dgChecks.BeginEdit();
                 }
             }
         }
 
-        // Новий метод для обробки завершення редагування комірки
         private void DgChecks_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
             if (e.EditAction == DataGridEditAction.Commit)
             {
                 if (e.Row.Item is CheckRecord record)
                 {
-                    // Визначаємо, яку колонку редагували
+                    // У нашому XAML: 0-Id (прихована), 1-Зображення, 2-Категорія, 3-Коментар, 4-Сума, 5-Дата
                     int columnIndex = e.Column.DisplayIndex;
 
-                    if (columnIndex == 2) // Колонка коментаря
+                    if (columnIndex == 3) // Колонка коментаря
                     {
                         if (e.EditingElement is TextBox textBox)
                         {
+                            // Для витрат та заощаджень коментар не зберігається
+                            if (currentMode == DataMode.Expenses || currentMode == DataMode.Savings)
+                            {
+                                MessageBox.Show("Для витрат та заощаджень коментар не можна змінювати", "Інформація",
+                                    MessageBoxButton.OK, MessageBoxImage.Information);
+                                return;
+                            }
+
                             record.Comment = textBox.Text;
-                            UpdateCommentInDatabase(record);
+                            if (!changedRecords.ContainsKey(record.Id))
+                            {
+                                changedRecords[record.Id] = record;
+                                hasUnsavedChanges = true;
+                            }
                         }
                     }
-                    else if (columnIndex == 3) // Колонка суми
+                    else if (columnIndex == 4) // Колонка суми
                     {
                         if (e.EditingElement is TextBox textBox)
                         {
                             if (decimal.TryParse(textBox.Text, out decimal newAmount))
                             {
-                                // Для витрат - від'ємне значення, для доходів - додатнє
-                                record.Amount = isExpensesMode ? -Math.Abs(newAmount) : Math.Abs(newAmount);
-                                UpdateAmountInDatabase(record);
+                                // Для витрат сума має бути від'ємною
+                                if (currentMode == DataMode.Expenses)
+                                    record.Amount = -Math.Abs(newAmount);
+                                else
+                                    record.Amount = Math.Abs(newAmount);
+
+                                if (!changedRecords.ContainsKey(record.Id))
+                                {
+                                    changedRecords[record.Id] = record;
+                                    hasUnsavedChanges = true;
+                                }
                             }
                             else
                             {
                                 MessageBox.Show("Будь ласка, введіть коректну суму", "Помилка",
                                     MessageBoxButton.OK, MessageBoxImage.Warning);
-                                e.Cancel = true; // Скасувати редагування
+                                e.Cancel = true;
                             }
                         }
                     }
@@ -571,19 +637,8 @@ namespace t
             }
         }
 
-        private void CommentTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            // Цей метод більше не потрібен, оскільки використовуємо CellEditEnding
-        }
-
-        private void AmountTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            // Цей метод більше не потрібен, оскільки використовуємо CellEditEnding
-        }
-
         private void AmountTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
-            // Дозволяємо тільки цифри та крапку/кому
             foreach (char c in e.Text)
             {
                 if (!char.IsDigit(c) && c != '.' && c != ',')
@@ -593,7 +648,6 @@ namespace t
                 }
             }
 
-            // Перевіряємо, щоб була тільки одна крапка/кома
             TextBox textBox = sender as TextBox;
             if (textBox != null)
             {
@@ -604,94 +658,6 @@ namespace t
                 {
                     e.Handled = true;
                 }
-            }
-        }
-
-        private void UpdateCommentInDatabase(CheckRecord record)
-        {
-            try
-            {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-
-                    string tableName = isExpensesMode ? "expenses" : "income";
-                    string idColumn = isExpensesMode ? "IDexpense" : "IDincome";
-                    string commentColumn = isExpensesMode ? "CommentExpenses" : "CommentIncome";
-
-                    // Перевіряємо, чи існує стовпець для коментаря у витратах
-                    if (isExpensesMode)
-                    {
-                        string checkColumnQuery = "SHOW COLUMNS FROM expenses LIKE 'CommentExpenses'";
-                        MySqlCommand checkCmd = new MySqlCommand(checkColumnQuery, connection);
-                        var result = checkCmd.ExecuteScalar();
-                        if (result == null)
-                        {
-                            // Створюємо стовпець, якщо його немає
-                            string alterQuery = "ALTER TABLE expenses ADD COLUMN CommentExpenses VARCHAR(255) AFTER CategoryNameExpenses";
-                            MySqlCommand alterCmd = new MySqlCommand(alterQuery, connection);
-                            alterCmd.ExecuteNonQuery();
-                        }
-                    }
-
-                    string query = $"UPDATE {tableName} SET {commentColumn} = @comment WHERE {idColumn} = @id AND IDuser = @userid";
-
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@comment", record.Comment ?? "");
-                    cmd.Parameters.AddWithValue("@id", record.Id);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-
-                    int rowsAffected = cmd.ExecuteNonQuery();
-
-                    if (rowsAffected > 0)
-                    {
-                        // Оновлюємо відображення
-                        dgChecks.Items.Refresh();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Помилка оновлення коментаря: {ex.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void UpdateAmountInDatabase(CheckRecord record)
-        {
-            try
-            {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-
-                    string tableName = isExpensesMode ? "expenses" : "income";
-                    string idColumn = isExpensesMode ? "IDexpense" : "IDincome";
-                    string amountColumn = isExpensesMode ? "AmoutExpenses" : "AmountIncome";
-
-                    // Для витрат зберігаємо додатне значення, для доходів - додатнє
-                    decimal amountToSave = Math.Abs(record.Amount);
-
-                    string query = $"UPDATE {tableName} SET {amountColumn} = @amount WHERE {idColumn} = @id AND IDuser = @userid";
-
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@amount", amountToSave);
-                    cmd.Parameters.AddWithValue("@id", record.Id);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-
-                    int rowsAffected = cmd.ExecuteNonQuery();
-
-                    if (rowsAffected > 0)
-                    {
-                        // Оновлюємо відображення
-                        dgChecks.Items.Refresh();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Помилка оновлення суми: {ex.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -722,8 +688,25 @@ namespace t
                 {
                     connection.Open();
 
-                    string tableName = isExpensesMode ? "expenses" : "income";
-                    string idColumn = isExpensesMode ? "IDexpense" : "IDincome";
+                    string tableName, idColumn;
+
+                    switch (currentMode)
+                    {
+                        case DataMode.Expenses:
+                            tableName = "expenses";
+                            idColumn = "IDexpenses";
+                            break;
+                        case DataMode.Income:
+                            tableName = "income";
+                            idColumn = "IDincome";
+                            break;
+                        case DataMode.Savings:
+                            tableName = "saving";
+                            idColumn = "IDsaving";
+                            break;
+                        default:
+                            return;
+                    }
 
                     string query = $"DELETE FROM {tableName} WHERE {idColumn} = @id AND IDuser = @userid";
 
@@ -735,20 +718,29 @@ namespace t
 
                     if (rowsAffected > 0)
                     {
+                        // Видаляємо зі списку змінених записів, якщо він там є
+                        if (changedRecords.ContainsKey(selectedRecord.Id))
+                        {
+                            changedRecords.Remove(selectedRecord.Id);
+                        }
+
                         MessageBox.Show("Запис успішно видалено", "Успіх",
                             MessageBoxButton.OK, MessageBoxImage.Information);
 
-                        // Оновлюємо список записів
-                        if (isExpensesMode)
+                        // Перезавантажуємо дані
+                        switch (currentMode)
                         {
-                            LoadExpensesChecks();
-                        }
-                        else
-                        {
-                            LoadIncomeChecks();
+                            case DataMode.Expenses:
+                                LoadExpensesChecks();
+                                break;
+                            case DataMode.Income:
+                                LoadIncomeChecks();
+                                break;
+                            case DataMode.Savings:
+                                LoadSavingsChecks();
+                                break;
                         }
 
-                        // Скидаємо вибір
                         ResetSelection();
                     }
                 }
@@ -760,9 +752,120 @@ namespace t
             }
         }
 
+        private void BtnSave_Click(object sender, RoutedEventArgs e)
+        {
+            SaveAllChanges();
+        }
+
+        private void SaveAllChanges()
+        {
+            try
+            {
+                if (changedRecords.Count > 0)
+                {
+                    int updatedCount = 0;
+
+                    foreach (var record in changedRecords.Values)
+                    {
+                        UpdateRecordInDatabase(record);
+                        updatedCount++;
+                    }
+
+                    MessageBox.Show($"{updatedCount} записів успішно збережено!", "Збереження",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    changedRecords.Clear();
+                    hasUnsavedChanges = false;
+
+                    // Оновлюємо відображення
+                    switch (currentMode)
+                    {
+                        case DataMode.Expenses:
+                            LoadExpensesChecks();
+                            break;
+                        case DataMode.Income:
+                            LoadIncomeChecks();
+                            break;
+                        case DataMode.Savings:
+                            LoadSavingsChecks();
+                            break;
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Немає змін для збереження", "Інформація",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка збереження змін: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void UpdateRecordInDatabase(CheckRecord record)
+        {
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    switch (record.Type)
+                    {
+                        case "expenses":
+                            string expensesQuery = @"
+                            UPDATE expenses 
+                            SET AmoutExpenses = @amount 
+                            WHERE IDexpenses = @id AND IDuser = @userid";
+
+                            MySqlCommand expensesCmd = new MySqlCommand(expensesQuery, connection);
+                            expensesCmd.Parameters.AddWithValue("@amount", Math.Abs(record.Amount));
+                            expensesCmd.Parameters.AddWithValue("@id", record.Id);
+                            expensesCmd.Parameters.AddWithValue("@userid", currentUserId);
+                            expensesCmd.ExecuteNonQuery();
+                            break;
+
+                        case "income":
+                            string incomeQuery = @"
+                            UPDATE income 
+                            SET AmountIncome = @amount, 
+                                CommentIncome = @comment 
+                            WHERE IDincome = @id AND IDuser = @userid";
+
+                            MySqlCommand incomeCmd = new MySqlCommand(incomeQuery, connection);
+                            incomeCmd.Parameters.AddWithValue("@amount", Math.Abs(record.Amount));
+                            incomeCmd.Parameters.AddWithValue("@comment", record.Comment ?? "");
+                            incomeCmd.Parameters.AddWithValue("@id", record.Id);
+                            incomeCmd.Parameters.AddWithValue("@userid", currentUserId);
+                            incomeCmd.ExecuteNonQuery();
+                            break;
+
+                        case "savings":
+                            string savingsQuery = @"
+                            UPDATE saving 
+                            SET AmoutSaving = @amount 
+                            WHERE IDsaving = @id AND IDuser = @userid";
+
+                            MySqlCommand savingsCmd = new MySqlCommand(savingsQuery, connection);
+                            savingsCmd.Parameters.AddWithValue("@amount", Math.Abs(record.Amount));
+                            savingsCmd.Parameters.AddWithValue("@id", record.Id);
+                            savingsCmd.Parameters.AddWithValue("@userid", currentUserId);
+                            savingsCmd.ExecuteNonQuery();
+                            break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка оновлення запису: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            // Перевіряємо чи всі елементи завантажені
             if (dgChecks == null)
             {
                 MessageBox.Show("Помилка: DataGrid не завантажено. Перевірте XAML файл.",
@@ -772,7 +875,28 @@ namespace t
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
+            MainWindow mainWindow = new MainWindow(currentUserId);
+            mainWindow.Show();
             this.Close();
+        }
+
+        private void BtnRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            switch (currentMode)
+            {
+                case DataMode.Expenses:
+                    LoadExpensesChecks();
+                    break;
+                case DataMode.Income:
+                    LoadIncomeChecks();
+                    break;
+                case DataMode.Savings:
+                    LoadSavingsChecks();
+                    break;
+            }
+
+            MessageBox.Show("Дані оновлено!", "Оновлення",
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 }
