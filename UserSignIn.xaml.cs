@@ -9,7 +9,7 @@ namespace t
 {
     public partial class UserSignIn : Window
     {
-        private string connectionString = "Server=sql7.freesqldatabase.com;Port=3306;user=sql7803706;Pwd=DrUIbcmB1f;Database=sql7803706;CharSet=utf8mb4;";
+        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
 
         public UserSignIn()
         {
@@ -135,6 +135,7 @@ namespace t
                 var passwordRecovery = new PasswordRecovery();
                 passwordRecovery.Owner = this;
                 passwordRecovery.ShowDialog();
+                this.Close();
             }
             catch
             {
