@@ -1,58 +1,80 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Microsoft.Win32;
 
 namespace t
 {
     public partial class EditCategory : Window
     {
         private int currentUserId;
-        private string currentCategoryType = "Expenses"; // Початковий тип - витрати
         private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
 
         private Dictionary<int, CategoryInfo> categories = new Dictionary<int, CategoryInfo>();
-        private Dictionary<string, string> iconDictionary = new Dictionary<string, string>();
         private int selectedCategoryId = 0;
         private string selectedCategoryName = "";
         private string selectedCategoryImage = "";
         private bool isEditing = false;
+        private bool hasUnsavedChanges = false;
 
         private class CategoryInfo
         {
             public int Id { get; set; }
             public string Name { get; set; }
             public string Image { get; set; }
-            public string Type { get; set; } // "Expenses" або "Income"
+            public string Type { get; set; }
         }
+
+        // Шлях до папки з іконками
+        private string iconsPath = @"C:\t\t\Properties\References\Categories\";
 
         public EditCategory(int userId)
         {
             InitializeComponent();
             currentUserId = userId;
 
-            // Встановлюємо початкове значення ComboBox
-            cmbCategoryType.SelectedIndex = 0;
-
-            InitializeIconDictionary();
+            // Завантажуємо категорії для типу, вибраного в ComboBox
             LoadCategories();
+
+            // Додаємо обробники подій
+            txtCategoryName.TextChanged += TxtCategoryName_TextChangedForEditing;
+            txtCategoryName.TextChanged += TxtCategoryName_TextChanged;
+            txtCategoryName.LostFocus += TxtCategoryName_LostFocus;
+            this.Closing += EditCategory_Closing;
+        }
+
+        private void EditCategory_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (hasUnsavedChanges)
+            {
+                MessageBoxResult result = MessageBox.Show("У вас є незбережені зміни. Вийти без збереження?", "Підтвердження",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.No)
+                {
+                    e.Cancel = true;
+                }
+            }
         }
 
         private void CmbCategoryType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            LoadCategories();
+            ResetSelection();
+        }
+
+        private string GetSelectedCategoryType()
+        {
             if (cmbCategoryType.SelectedItem is ComboBoxItem selectedItem)
             {
-                currentCategoryType = selectedItem.Tag.ToString();
-                LoadCategories();
-
-                // Скидаємо вибір категорії
-                ResetSelection();
+                return selectedItem.Tag.ToString();
             }
+            return "Expenses"; // Значення за замовчуванням
         }
 
         private void ResetSelection()
@@ -61,6 +83,7 @@ namespace t
             selectedCategoryName = "";
             selectedCategoryImage = "";
             isEditing = false;
+            hasUnsavedChanges = false;
 
             // Ховаємо панель редагування
             pnlEdit.Visibility = Visibility.Collapsed;
@@ -78,51 +101,11 @@ namespace t
             }
         }
 
-        private void InitializeIconDictionary()
-        {
-            iconDictionary["Продукти"] = "food.png";
-            iconDictionary["Транспорт"] = "airplane.png";
-            iconDictionary["Діти"] = "baby-carriage.png";
-            iconDictionary["Покупки"] = "basket-outline.png";
-            iconDictionary["Комунікації"] = "border-color.png";
-            iconDictionary["Автосервіс"] = "car-cog.png";
-            iconDictionary["Електротранспорт"] = "car-electric.png";
-            iconDictionary["Вантажівка"] = "car-pickup.png";
-            iconDictionary["Супермаркет"] = "cart-outline.png";
-            iconDictionary["Ремонт авто"] = "car-wrench.png";
-            iconDictionary["Готівка"] = "cash.png";
-            iconDictionary["Фінанси"] = "cash-multiple.png";
-            iconDictionary["Кафе"] = "coffee-outline.png";
-            iconDictionary["Сервіси"] = "cogs.png";
-            iconDictionary["Краса"] = "content-cut.png";
-            iconDictionary["Розваги"] = "controller.png";
-            iconDictionary["Солодощі"] = "cookie-outline.png";
-            iconDictionary["Кредити"] = "credit-card-multiple-outline.png";
-            iconDictionary["Костюми"] = "diamond-stone.png";
-            iconDictionary["Родина"] = "family.png";
-            iconDictionary["Квіти"] = "flower-tulip-outline.png";
-            iconDictionary["Їжа"] = "food-apple.png";
-            iconDictionary["Пальне"] = "gas-station.png";
-            iconDictionary["Подарунки"] = "gift-outline.png";
-            iconDictionary["Донати"] = "hand-coin-outline.png";
-            iconDictionary["Одяг"] = "hanger.png";
-            iconDictionary["Квартплата"] = "home.png";
-            iconDictionary["Медицина"] = "medical-bag.png";
-            iconDictionary["Товари"] = "sack.png";
-            iconDictionary["Магазин"] = "store-outline.png";
-            iconDictionary["Іграшки"] = "teddy-bear.png";
-            iconDictionary["Кіно"] = "theater.png";
-            iconDictionary["Гігієна"] = "toothbrush-paste.png";
-            iconDictionary["Накопичення"] = "treasure-chest.png";
-            iconDictionary["Валюта"] = "usd.png";
-            iconDictionary["Одяг"] = "tshirt-crew.png";
-            iconDictionary["Ліки"] = "pill-multiple.png";
-        }
-
         private void LoadCategories()
         {
             try
             {
+                string currentCategoryType = GetSelectedCategoryType();
                 categories.Clear();
                 CategoriesPanel.Children.Clear();
 
@@ -163,7 +146,7 @@ namespace t
                 {
                     TextBlock noCategories = new TextBlock
                     {
-                        Text = currentCategoryType == "Expenses" ?
+                        Text = GetSelectedCategoryType() == "Expenses" ?
                             "У вас немає категорій витрат для редагування" :
                             "У вас немає категорій доходів для редагування",
                         FontSize = 16,
@@ -208,37 +191,47 @@ namespace t
             // Іконка
             try
             {
-                Image iconImage = new Image
+                string iconPath = Path.Combine(iconsPath, image);
+                if (File.Exists(iconPath))
                 {
-                    Width = 60,
-                    Height = 60,
-                    Margin = new Thickness(0, 0, 0, 10),
-                    Source = new BitmapImage(new Uri($"C:/t/t/Properties/References/Categories/{image}")),
-                    Stretch = Stretch.Uniform
-                };
-                contentPanel.Children.Add(iconImage);
+                    Image iconImage = new Image
+                    {
+                        Width = 60,
+                        Height = 60,
+                        Margin = new Thickness(0, 0, 0, 10),
+                        Source = new BitmapImage(new Uri(iconPath)),
+                        Stretch = Stretch.Uniform
+                    };
+                    contentPanel.Children.Add(iconImage);
+                }
+                else
+                {
+                    // Спробувати альтернативний шлях
+                    string altPath = $"C:/t/t/Properties/References/Categories/{image}";
+                    if (File.Exists(altPath))
+                    {
+                        Image iconImage = new Image
+                        {
+                            Width = 60,
+                            Height = 60,
+                            Margin = new Thickness(0, 0, 0, 10),
+                            Source = new BitmapImage(new Uri(altPath)),
+                            Stretch = Stretch.Uniform
+                        };
+                        contentPanel.Children.Add(iconImage);
+                    }
+                    else
+                    {
+                        CreateIconPlaceholder(contentPanel, categoryName);
+                    }
+                }
             }
             catch
             {
-                Border placeholder = new Border
-                {
-                    Width = 60,
-                    Height = 60,
-                    Margin = new Thickness(0, 0, 0, 10),
-                    Background = Brushes.LightGray,
-                    CornerRadius = new CornerRadius(30),
-                    Child = new TextBlock
-                    {
-                        Text = "📁",
-                        FontSize = 24,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center
-                    }
-                };
-                contentPanel.Children.Add(placeholder);
+                CreateIconPlaceholder(contentPanel, categoryName);
             }
 
-            // Назва категорії (з можливістю подвійного кліку)
+            // Назва категорії
             TextBlock nameText = new TextBlock
             {
                 Text = categoryName,
@@ -262,6 +255,28 @@ namespace t
 
             categoryBorder.Child = contentPanel;
             CategoriesPanel.Children.Add(categoryBorder);
+        }
+
+        private void CreateIconPlaceholder(StackPanel panel, string categoryName)
+        {
+            Border placeholder = new Border
+            {
+                Width = 60,
+                Height = 60,
+                Margin = new Thickness(0, 0, 0, 10),
+                Background = Brushes.LightGray,
+                CornerRadius = new CornerRadius(30),
+                Child = new TextBlock
+                {
+                    Text = categoryName.Length > 0 ? categoryName[0].ToString() : "?",
+                    FontSize = 24,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = Brushes.White
+                }
+            };
+            panel.Children.Add(placeholder);
         }
 
         private void CategoryBorder_MouseDown(object sender, MouseButtonEventArgs e)
@@ -312,16 +327,68 @@ namespace t
             txtCategoryName.Text = selectedCategoryName;
             txtCharCount.Text = $"{selectedCategoryName.Length}/13 символів";
 
+            // Завантажуємо іконку
+            LoadSelectedIcon();
+
+            btnSave.IsEnabled = true;
+            hasUnsavedChanges = false;
+        }
+
+        private void LoadSelectedIcon()
+        {
             try
             {
-                imgSelectedIcon.Source = new BitmapImage(new Uri($"C:/t/t/Properties/References/Categories/{selectedCategoryImage}"));
+                string iconPath = Path.Combine(iconsPath, selectedCategoryImage);
+                if (File.Exists(iconPath))
+                {
+                    imgSelectedIcon.Source = new BitmapImage(new Uri(iconPath));
+                }
+                else
+                {
+                    // Спробувати альтернативний шлях
+                    string altPath = $"C:/t/t/Properties/References/Categories/{selectedCategoryImage}";
+                    if (File.Exists(altPath))
+                    {
+                        imgSelectedIcon.Source = new BitmapImage(new Uri(altPath));
+                    }
+                    else
+                    {
+                        // Створюємо placeholder
+                        SetIconPlaceholder();
+                    }
+                }
             }
             catch
             {
-                imgSelectedIcon.Source = null;
+                SetIconPlaceholder();
+            }
+        }
+
+        private void SetIconPlaceholder()
+        {
+            // Створюємо placeholder з використанням DrawingVisual
+            DrawingVisual drawingVisual = new DrawingVisual();
+            using (DrawingContext drawingContext = drawingVisual.RenderOpen())
+            {
+                drawingContext.DrawRectangle(Brushes.LightGray, null, new Rect(0, 0, 50, 50));
+
+                FormattedText formattedText = new FormattedText(
+                    selectedCategoryName.Length > 0 ? selectedCategoryName[0].ToString().ToUpper() : "?",
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Arial"),
+                    24,
+                    Brushes.White,
+                    VisualTreeHelper.GetDpi(this).PixelsPerDip);
+
+                double textWidth = formattedText.Width;
+                double textHeight = formattedText.Height;
+                drawingContext.DrawText(formattedText, new Point(25 - textWidth / 2, 25 - textHeight / 2));
             }
 
-            btnSave.IsEnabled = true;
+            RenderTargetBitmap rtb = new RenderTargetBitmap(50, 50, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(drawingVisual);
+            imgSelectedIcon.Source = rtb;
         }
 
         private void HighlightSelectedCategory(Border selectedBorder)
@@ -388,17 +455,11 @@ namespace t
             }
 
             txtCharCount.Text = $"{txtCategoryName.Text.Length}/13 символів";
+        }
 
-            // Автоматично оновлюємо іконку при зміні назви
-            if (iconDictionary.ContainsKey(txtCategoryName.Text))
-            {
-                selectedCategoryImage = iconDictionary[txtCategoryName.Text];
-                try
-                {
-                    imgSelectedIcon.Source = new BitmapImage(new Uri($"C:/t/t/Properties/References/Categories/{selectedCategoryImage}"));
-                }
-                catch { }
-            }
+        private void TxtCategoryName_TextChangedForEditing(object sender, TextChangedEventArgs e)
+        {
+            hasUnsavedChanges = true;
         }
 
         private void TxtCategoryName_LostFocus(object sender, RoutedEventArgs e)
@@ -414,83 +475,15 @@ namespace t
         private void BtnChangeIcon_Click(object sender, RoutedEventArgs e)
         {
             // Створюємо діалог вибору іконки
-            Window iconDialog = new Window
+            SelectIconDialog iconDialog = new SelectIconDialog();
+            iconDialog.Owner = this;
+
+            if (iconDialog.ShowDialog() == true)
             {
-                Title = "Вибір іконки",
-                Width = 400,
-                Height = 300,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this
-            };
-
-            WrapPanel iconsPanel = new WrapPanel
-            {
-                Margin = new Thickness(10)
-            };
-
-            // Додаємо доступні іконки
-            foreach (var icon in iconDictionary)
-            {
-                Border iconBorder = new Border
-                {
-                    Width = 70,
-                    Height = 70,
-                    Margin = new Thickness(5),
-                    Background = Brushes.White,
-                    BorderBrush = Brushes.LightGray,
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(5),
-                    Cursor = Cursors.Hand,
-                    Tag = icon.Value
-                };
-
-                StackPanel iconContent = new StackPanel
-                {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-
-                try
-                {
-                    Image iconImage = new Image
-                    {
-                        Width = 40,
-                        Height = 40,
-                        Source = new BitmapImage(new Uri($"C:/t/t/Properties/References/Categories/{icon.Value}")),
-                        Stretch = Stretch.Uniform
-                    };
-                    iconContent.Children.Add(iconImage);
-                }
-                catch { }
-
-                TextBlock iconName = new TextBlock
-                {
-                    Text = icon.Key,
-                    FontSize = 10,
-                    TextAlignment = TextAlignment.Center,
-                    TextWrapping = TextWrapping.Wrap,
-                    MaxWidth = 60
-                };
-                iconContent.Children.Add(iconName);
-
-                iconBorder.MouseDown += (s, args) =>
-                {
-                    selectedCategoryImage = icon.Value;
-                    imgSelectedIcon.Source = new BitmapImage(new Uri($"C:/t/t/Properties/References/Categories/{icon.Value}"));
-                    iconDialog.Close();
-                };
-
-                iconBorder.Child = iconContent;
-                iconsPanel.Children.Add(iconBorder);
+                selectedCategoryImage = iconDialog.SelectedIcon;
+                LoadSelectedIcon();
+                hasUnsavedChanges = true;
             }
-
-            ScrollViewer scrollViewer = new ScrollViewer
-            {
-                Content = iconsPanel
-            };
-
-            iconDialog.Content = scrollViewer;
-            iconDialog.ShowDialog();
         }
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
@@ -516,6 +509,8 @@ namespace t
         {
             try
             {
+                string currentCategoryType = GetSelectedCategoryType();
+
                 using (MySqlConnection connection = new MySqlConnection(connectionString))
                 {
                     connection.Open();
@@ -552,14 +547,12 @@ namespace t
                     if (rowsAffected > 0)
                     {
                         // Оновлюємо відповідні записи в таблицях expenses або income
-                        string updateRecordsTable = currentCategoryType == "Expenses" ? "expenses" : "income";
-
                         if (currentCategoryType == "Expenses")
                         {
                             // Для витрат
                             string updateRecordsQuery = @"UPDATE expenses 
                                                          SET CategoryNameExpenses = @name, 
-                                                             CategotyImageExpenses = @image 
+                                                             CategoryImageExpenses = @image 
                                                          WHERE IDuser = @userid AND IDcategory = @categoryid";
 
                             MySqlCommand updateRecordsCmd = new MySqlCommand(updateRecordsQuery, connection);
@@ -593,8 +586,19 @@ namespace t
 
                         // Скидаємо вибір
                         ResetSelection();
+                        hasUnsavedChanges = false;
+                    }
+                    else
+                    {
+                        MessageBox.Show("Не вдалося оновити категорію", "Помилка",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
+            }
+            catch (MySqlException mysqlEx)
+            {
+                MessageBox.Show($"Помилка бази даних: {mysqlEx.Message}\nКод помилки: {mysqlEx.Number}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception ex)
             {
@@ -605,16 +609,171 @@ namespace t
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)
         {
-            if (isEditing)
-            {
-                MessageBoxResult result = MessageBox.Show("У вас є незбережені зміни. Вийти без збереження?", "Підтвердження",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+            this.Close();
+        }
 
-                if (result == MessageBoxResult.No)
-                    return;
+        
+    }
+
+    // Допоміжний клас для діалогу вибору іконки
+    public class SelectIconDialog : Window
+    {
+        public string SelectedIcon { get; private set; }
+        private List<string> availableIcons = new List<string>
+        {
+            "airplane.png", "baby-carriage.png", "basket-outline.png", "border-color.png",
+            "car-cog.png", "car-electric.png", "car-pickup.png", "cart-outline.png",
+            "car-wrench.png", "cash.png", "cash-multiple.png", "coffee-outline.png",
+            "cogs.png", "content-cut.png", "controller.png", "cookie-outline.png",
+            "credit-card-multiple-outline.png", "diamond-stone.png", "family.png",
+            "flower-tulip-outline.png","food.png", "food-apple.png", "gas-station.png",
+            "gift-outline.png","hand-coin-outline.png", "hanger.png", "home.png",
+            "medical-bag.png","sack.png", "store-outline.png", "teddy-bear.png",
+            "theater.png","toothbrush-paste.png","treasure-chest.png","usd.png",
+            "tshirt-crew.png","pill-multiple.png"
+        };
+
+        // Шлях до папки з іконками
+        private string iconsPath = @"C:\t\t\Properties\References\Categories\";
+
+        public SelectIconDialog()
+        {
+            Title = "Вибір іконки";
+            Width = 500;
+            Height = 400;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            ResizeMode = ResizeMode.NoResize;
+
+            Grid mainGrid = new Grid();
+
+            ScrollViewer scrollViewer = new ScrollViewer();
+            WrapPanel iconsPanel = new WrapPanel
+            {
+                Margin = new Thickness(10)
+            };
+
+            foreach (string icon in availableIcons)
+            {
+                Button iconButton = new Button
+                {
+                    Width = 80,
+                    Height = 80,
+                    Margin = new Thickness(5),
+                    Background = Brushes.Transparent,
+                    BorderBrush = Brushes.LightGray,
+                    Tag = icon
+                };
+
+                StackPanel contentPanel = new StackPanel
+                {
+                    Orientation = Orientation.Vertical,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                try
+                {
+                    string iconPath = Path.Combine(iconsPath, icon);
+                    if (File.Exists(iconPath))
+                    {
+                        Image iconImage = new Image
+                        {
+                            Width = 40,
+                            Height = 40,
+                            Source = new BitmapImage(new Uri(iconPath)),
+                            Stretch = Stretch.Uniform
+                        };
+                        contentPanel.Children.Add(iconImage);
+                    }
+                    else
+                    {
+                        // Спробувати альтернативний шлях
+                        string altPath = $"C:/t/t/Properties/References/Categories/{icon}";
+                        if (File.Exists(altPath))
+                        {
+                            Image iconImage = new Image
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Source = new BitmapImage(new Uri(altPath)),
+                                Stretch = Stretch.Uniform
+                            };
+                            contentPanel.Children.Add(iconImage);
+                        }
+                        else
+                        {
+                            // Створити placeholder
+                            Border placeholder = new Border
+                            {
+                                Width = 40,
+                                Height = 40,
+                                Background = Brushes.LightGray,
+                                CornerRadius = new CornerRadius(20),
+                                Child = new TextBlock
+                                {
+                                    Text = Path.GetFileNameWithoutExtension(icon).Length > 0
+                                        ? Path.GetFileNameWithoutExtension(icon)[0].ToString().ToUpper()
+                                        : "?",
+                                    FontSize = 20,
+                                    FontWeight = FontWeights.Bold,
+                                    HorizontalAlignment = HorizontalAlignment.Center,
+                                    VerticalAlignment = VerticalAlignment.Center,
+                                    Foreground = Brushes.White
+                                }
+                            };
+                            contentPanel.Children.Add(placeholder);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Створити placeholder при помилці
+                    Border placeholder = new Border
+                    {
+                        Width = 40,
+                        Height = 40,
+                        Background = Brushes.LightGray,
+                        CornerRadius = new CornerRadius(20),
+                        Child = new TextBlock
+                        {
+                            Text = Path.GetFileNameWithoutExtension(icon).Length > 0
+                                ? Path.GetFileNameWithoutExtension(icon)[0].ToString().ToUpper()
+                                : "?",
+                            FontSize = 20,
+                            FontWeight = FontWeights.Bold,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Foreground = Brushes.White
+                        }
+                    };
+                    contentPanel.Children.Add(placeholder);
+                }
+
+                TextBlock iconName = new TextBlock
+                {
+                    Text = Path.GetFileNameWithoutExtension(icon),
+                    FontSize = 10,
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = 70
+                };
+                contentPanel.Children.Add(iconName);
+
+                iconButton.Content = contentPanel;
+                iconButton.Click += (s, e) =>
+                {
+                    SelectedIcon = icon;
+                    DialogResult = true;
+                    Close();
+                };
+
+                iconsPanel.Children.Add(iconButton);
             }
 
-            this.Close();
+            scrollViewer.Content = iconsPanel;
+            mainGrid.Children.Add(scrollViewer);
+
+            Content = mainGrid;
         }
     }
 }

@@ -4,7 +4,7 @@
         Title="Редагувати категорію" Height="700" Width="900"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="#f0f8ff">
+        Background="#F5F5F5">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -16,7 +16,7 @@
         </Grid.RowDefinitions>
 
         <!-- Заголовок -->
-        <Border Grid.Row="0" Background="#1e90ff" Padding="15">
+        <Border Grid.Row="0" Background="#4A90E2" Padding="15">
             <StackPanel>
                 <TextBlock Text="РЕДАГУВАННЯ КАТЕГОРІЙ" 
                          FontSize="24" 
@@ -33,7 +33,7 @@
         </Border>
 
         <!-- Панель вибору типу -->
-        <Border Grid.Row="1" Background="#e6f2ff" Padding="10">
+        <Border Grid.Row="1" Background="#E6F2FF" Padding="10">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <TextBlock Text="Тип категорій:" 
                           FontSize="14" 
@@ -61,7 +61,7 @@
         </ScrollViewer>
 
         <!-- Панель редагування -->
-        <Border Grid.Row="3" Background="#e6f2ff" Padding="20" Margin="20" CornerRadius="10"
+        <Border Grid.Row="3" Background="#E6F2FF" Padding="20" Margin="20" CornerRadius="10"
                 Visibility="Collapsed" x:Name="pnlEdit">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -81,7 +81,7 @@
                        Width="100" 
                        Height="100"
                        Background="White"
-                       BorderBrush="#1e90ff"
+                       BorderBrush="#4A90E2"
                        BorderThickness="2"
                        CornerRadius="10">
                     <Image x:Name="imgSelectedIcon" 
@@ -96,7 +96,7 @@
                        Width="100"
                        Height="30"
                        Margin="0,10,20,0"
-                       Background="#1e90ff"
+                       Background="#4A90E2"
                        Foreground="White"
                        Click="BtnChangeIcon_Click"/>
 
@@ -136,25 +136,25 @@
         </Border>
 
         <!-- Панель кнопок -->
-        <Border Grid.Row="4" Background="#e6f2ff" Padding="20">
+        <Border Grid.Row="4" Background="#EEEEEE" Padding="20">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <Button x:Name="btnSave" 
                        Content="ЗБЕРЕГТИ" 
                        Width="120" 
                        Height="40" 
                        Margin="10" 
-                       Background="#4CAF50" 
+                       Background="#27AE60" 
                        Foreground="White" 
                        FontWeight="Bold"
                        IsEnabled="False"
                        Click="BtnSave_Click"/>
 
                 <Button x:Name="btnCancel" 
-                       Content="СКАСУВАТИ" 
+                       Content="ВИЙТИ" 
                        Width="120" 
                        Height="40" 
                        Margin="10" 
-                       Background="#666666" 
+                       Background="#95A5A6" 
                        Foreground="White" 
                        FontWeight="Bold"
                        Click="BtnCancel_Click"/>

@@ -119,9 +119,6 @@
     <Compile Include="ChecksData.xaml.cs">
       <DependentUpon>ChecksData.xaml</DependentUpon>
     </Compile>
-    <Compile Include="EditingUserData.xaml.cs">
-      <DependentUpon>EditingUserData.xaml</DependentUpon>
-    </Compile>
     <Compile Include="PasswordRecovery.xaml.cs">
       <DependentUpon>PasswordRecovery.xaml</DependentUpon>
     </Compile>
@@ -147,10 +144,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="EditCategory.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="EditingUserData.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -222,6 +215,7 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+    <None Include="YourProject.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

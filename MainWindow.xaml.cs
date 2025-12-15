@@ -3,23 +3,21 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
-using static Mysqlx.Datatypes.Scalar.Types;
 
 namespace t
 {
     public partial class MainWindow : Window
     {
-        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
-        private List<Transaction> transactions = new List<Transaction>();
+        private string connectionString = "Server=sql7.freesqldatabase.com;Port=3306;user=sql7811018;Pwd=aBIaRrIe8v;Database=sql7811018;CharSet=utf8mb4;";
         private PeriodType currentPeriod = PeriodType.Day;
         private ViewType currentViewType = ViewType.Expenses;
         private DateTime currentDate = DateTime.Now;
         private DateTime customStartDate = DateTime.Now;
         private DateTime customEndDate = DateTime.Now;
         private int currentUserId;
+
         public MainWindow(int userId)
         {
-           
             InitializeComponent();
             currentUserId = userId;
             cmbType.SelectedIndex = 0;
@@ -31,10 +29,12 @@ namespace t
             UpdateAmountDisplay();
             UpdateGeneralBalance();
         }
+
         private int GetCurrentUserId()
         {
             return currentUserId;
         }
+
         private void UpdateDateDisplay()
         {
             switch (currentPeriod)
@@ -65,7 +65,6 @@ namespace t
 
         private DateTime GetStartOfWeek(DateTime date)
         {
-            // Тиждень починається з понеділка
             int diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
             return date.AddDays(-1 * diff).Date;
         }
@@ -132,12 +131,12 @@ namespace t
                     string tableName = "";
                     string amountColumn = "";
                     string dateColumn = "";
-                    
+
                     switch (currentViewType)
                     {
                         case ViewType.Expenses:
                             tableName = "expenses";
-                            amountColumn = "AmoutExpenses"; 
+                            amountColumn = "AmoutExpenses";
                             dateColumn = "ExpenseDate";
                             break;
                         case ViewType.Income:
@@ -179,6 +178,41 @@ namespace t
             }
         }
 
+        private (DateTime startDate, DateTime endDate) GetCurrentPeriodDates()
+        {
+            DateTime startDate, endDate;
+
+            switch (currentPeriod)
+            {
+                case PeriodType.Day:
+                    startDate = currentDate.Date;
+                    endDate = currentDate.Date.AddDays(1).AddSeconds(-1);
+                    break;
+                case PeriodType.Week:
+                    startDate = GetStartOfWeek(currentDate);
+                    endDate = startDate.AddDays(7).AddSeconds(-1);
+                    break;
+                case PeriodType.Month:
+                    startDate = new DateTime(currentDate.Year, currentDate.Month, 1);
+                    endDate = startDate.AddMonths(1).AddSeconds(-1);
+                    break;
+                case PeriodType.Year:
+                    startDate = new DateTime(currentDate.Year, 1, 1);
+                    endDate = new DateTime(currentDate.Year, 12, 31).AddDays(1).AddSeconds(-1);
+                    break;
+                case PeriodType.Custom:
+                    startDate = customStartDate.Date;
+                    endDate = customEndDate.Date.AddDays(1).AddSeconds(-1);
+                    break;
+                default:
+                    startDate = currentDate.Date;
+                    endDate = currentDate.Date.AddDays(1).AddSeconds(-1);
+                    break;
+            }
+
+            return (startDate, endDate);
+        }
+
         private void UpdateGeneralBalance()
         {
             try
@@ -189,7 +223,6 @@ namespace t
 
                     int currentUserId = GetCurrentUserId();
 
-                    // Використовуємо правильні назви стовпців
                     string query = @"
                 SELECT 
                     (SELECT COALESCE(SUM(AmountIncome), 0) FROM income WHERE IDuser = @UserId) -
@@ -213,47 +246,11 @@ namespace t
             }
         }
 
-        private void ReturnToCurrentPeriod()
-        {
-            DateTime now = DateTime.Now;
-
-            switch (currentPeriod)
-            {
-                case PeriodType.Day:
-                    currentDate = now;
-                    break;
-                case PeriodType.Week:
-                    currentDate = now;
-                    break;
-                case PeriodType.Month:
-                    currentDate = now;
-                    break;
-                case PeriodType.Year:
-                    currentDate = now;
-                    break;
-                case PeriodType.Custom:
-                    // Для власного періоду встановлюємо поточний день
-                    customStartDate = now;
-                    customEndDate = now;
-                    dpStartDate.SelectedDate = now;
-                    dpEndDate.SelectedDate = now;
-                    break;
-            }
-
-            UpdateDateDisplay();
-            UpdateAmountDisplay();
-
-            // Показати повідомлення про успішне повернення
-            ShowTemporaryMessage("Поточний період встановлено");
-        }
-
         private void ShowTemporaryMessage(string message)
         {
-            // Тимчасове повідомлення
             string originalText = btnDatePeriod.Content.ToString();
             btnDatePeriod.Content = message;
 
-            // Повернути оригінальний текст через 2 секунди
             var timer = new System.Windows.Threading.DispatcherTimer();
             timer.Interval = TimeSpan.FromSeconds(2);
             timer.Tick += (s, args) =>
@@ -268,7 +265,6 @@ namespace t
         {
             if (currentPeriod == PeriodType.Custom)
             {
-                // Для власного періоду зміщуємо обидві дати
                 int daysDiff = (int)(customEndDate - customStartDate).TotalDays;
                 customStartDate = customStartDate.AddDays(-daysDiff - 1);
                 customEndDate = customEndDate.AddDays(-daysDiff - 1);
@@ -301,7 +297,6 @@ namespace t
         {
             if (currentPeriod == PeriodType.Custom)
             {
-                // Для власного періоду зміщуємо обидві дати
                 int daysDiff = (int)(customEndDate - customStartDate).TotalDays;
                 customStartDate = customStartDate.AddDays(daysDiff + 1);
                 customEndDate = customEndDate.AddDays(daysDiff + 1);
@@ -382,25 +377,22 @@ namespace t
 
         private void BtnEditCategories_Click(object sender, RoutedEventArgs e)
         {
-            // Тепер вікно самостійно керує перемиканням між типами категорій
             EditCategory editWindow = new EditCategory(currentUserId);
             editWindow.ShowDialog();
-
-            // Оновити дані після редагування категорій
             UpdateAmountDisplay();
             UpdateGeneralBalance();
+            
         }
 
         private void BtnDeleteCategories_Click(object sender, RoutedEventArgs e)
         {
-            // Тепер вікно самостійно керує перемиканням між типами категорій
             DeleteCategory deleteWindow = new DeleteCategory(currentUserId);
             deleteWindow.ShowDialog();
-
-            // Оновити дані після видалення категорій
             UpdateAmountDisplay();
             UpdateGeneralBalance();
+            
         }
+
         private void DatePicker_SelectedDateChanged(object sender, SelectionChangedEventArgs e)
         {
             if (currentPeriod == PeriodType.Custom && dpStartDate.SelectedDate.HasValue && dpEndDate.SelectedDate.HasValue)
@@ -434,7 +426,8 @@ namespace t
 
         private void BtnChecks_Click(object sender, RoutedEventArgs e)
         {
-            ChecksData checksWindow = new ChecksData(currentUserId);
+            var (startDate, endDate) = GetCurrentPeriodDates();
+            ChecksData checksWindow = new ChecksData(currentUserId, startDate, endDate);
             checksWindow.ShowDialog();
             this.Close();
         }
@@ -443,22 +436,18 @@ namespace t
         {
             DateTime dateToPass;
 
-            // Якщо ви хочете передавати поточну дату з періоду
             switch (currentPeriod)
             {
                 case PeriodType.Day:
                     dateToPass = currentDate;
                     break;
                 case PeriodType.Week:
-                    // Передаємо перший день тижня
                     dateToPass = GetStartOfWeek(currentDate);
                     break;
                 case PeriodType.Month:
-                    // Передаємо перший день місяця
                     dateToPass = new DateTime(currentDate.Year, currentDate.Month, 1);
                     break;
                 case PeriodType.Year:
-                    // Передаємо перший день року
                     dateToPass = new DateTime(currentDate.Year, 1, 1);
                     break;
                 case PeriodType.Custom:
@@ -469,22 +458,15 @@ namespace t
                     break;
             }
 
-            // Передати userId і дату у вікно Expenses
-            Expenses addRecordWindow = new Expenses(currentUserId, dateToPass);
+            Expenses addRecordWindow = new Expenses(currentUserId, dateToPass, currentViewType);
             addRecordWindow.ShowDialog();
-
-            // Оновити дані після закриття вікна додавання
             UpdateAmountDisplay();
             UpdateGeneralBalance();
-        }
-
-
-        private void BtnSave_Click(object sender, RoutedEventArgs e)
-        {
-            Savings savingsWindow = new Savings();
-            savingsWindow.ShowDialog();
             this.Close();
         }
+
+
+
         private void BtnSettings_Click(object sender, RoutedEventArgs e)
         {
             UserSettings settingsWindow = new UserSettings(currentUserId);
@@ -492,5 +474,27 @@ namespace t
             this.Close();
         }
     }
-}
 
+    public enum PeriodType
+    {
+        Day,
+        Week,
+        Month,
+        Year,
+        Custom
+    }
+
+    public enum ViewType
+    {
+        Expenses,
+        Income,
+        Savings
+    }
+
+    public class Transaction
+    {
+        public decimal Amount { get; set; }
+        public DateTime Date { get; set; }
+        public string Category { get; set; }
+    }
+}

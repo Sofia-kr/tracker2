@@ -1,10 +1,10 @@
 ﻿<Window x:Class="t.DeleteCategory"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Видалити категорію" Height="600" Width="800"
+        Title="Видалити категорію" Height="700" Width="900"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="#f0f8ff">
+        Background="#F5F5F5">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -15,7 +15,7 @@
         </Grid.RowDefinitions>
 
         <!-- Заголовок -->
-        <Border Grid.Row="0" Background="#1e90ff" Padding="15">
+        <Border Grid.Row="0" Background="#4A90E2" Padding="15">
             <StackPanel>
                 <TextBlock Text="ВИДАЛЕННЯ КАТЕГОРІЙ" 
                          FontSize="24" 
@@ -32,7 +32,7 @@
         </Border>
 
         <!-- Панель вибору типу -->
-        <Border Grid.Row="1" Background="#e6f2ff" Padding="10">
+        <Border Grid.Row="1" Background="#E6F2FF" Padding="10">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <TextBlock Text="Тип категорій:" 
                           FontSize="14" 
@@ -60,25 +60,25 @@
         </ScrollViewer>
 
         <!-- Панель кнопок -->
-        <Border Grid.Row="3" Background="#e6f2ff" Padding="20">
+        <Border Grid.Row="3" Background="#EEEEEE" Padding="20">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <Button x:Name="btnDelete" 
                        Content="ВИДАЛИТИ" 
                        Width="120" 
                        Height="40" 
                        Margin="10" 
-                       Background="#ff4444" 
+                       Background="#E74C3C" 
                        Foreground="White" 
                        FontWeight="Bold"
                        IsEnabled="False"
                        Click="BtnDelete_Click"/>
 
                 <Button x:Name="btnCancel" 
-                       Content="СКАСУВАТИ" 
+                       Content="ВИЙТИ" 
                        Width="120" 
                        Height="40" 
                        Margin="10" 
-                       Background="#666666" 
+                       Background="#95A5A6" 
                        Foreground="White" 
                        FontWeight="Bold"
                        Click="BtnCancel_Click"/>
@@ -93,7 +93,7 @@
                   VerticalAlignment="Bottom"
                   FontSize="16" 
                   FontWeight="Bold" 
-                  Foreground="#1e90ff"
+                  Foreground="#4A90E2"
                   TextAlignment="Center"/>
     </Grid>
 </Window>

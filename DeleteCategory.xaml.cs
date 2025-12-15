@@ -1,6 +1,8 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -12,7 +14,6 @@ namespace t
     public partial class DeleteCategory : Window
     {
         private int currentUserId;
-        private string currentCategoryType = "Expenses"; // Початковий тип - витрати
         private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
 
         private Dictionary<int, CategoryInfo> categories = new Dictionary<int, CategoryInfo>();
@@ -24,30 +25,31 @@ namespace t
             public int Id { get; set; }
             public string Name { get; set; }
             public string Image { get; set; }
-            public string Type { get; set; } // "Expenses" або "Income"
+            public string Type { get; set; }
         }
 
         public DeleteCategory(int userId)
         {
             InitializeComponent();
             currentUserId = userId;
-
-            // Встановлюємо початкове значення ComboBox
             cmbCategoryType.SelectedIndex = 0;
 
             LoadCategories();
         }
 
-        private void CmbCategoryType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private string GetSelectedCategoryType()
         {
             if (cmbCategoryType.SelectedItem is ComboBoxItem selectedItem)
             {
-                currentCategoryType = selectedItem.Tag.ToString();
-                LoadCategories();
-
-                // Скидаємо вибір категорії
-                ResetSelection();
+                return selectedItem.Tag.ToString();
             }
+            return "Expenses"; // Значення за замовчуванням
+        }
+
+        private void CmbCategoryType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            LoadCategories();
+            ResetSelection();
         }
 
         private void ResetSelection()
@@ -73,6 +75,7 @@ namespace t
         {
             try
             {
+                string currentCategoryType = GetSelectedCategoryType();
                 categories.Clear();
                 CategoriesPanel.Children.Clear();
 
@@ -104,7 +107,6 @@ namespace t
                             Type = currentCategoryType
                         };
 
-                        // Створюємо кнопку категорії
                         CreateCategoryButton(categoryId, categoryName, image);
                     }
                     reader.Close();
@@ -114,7 +116,7 @@ namespace t
                 {
                     TextBlock noCategories = new TextBlock
                     {
-                        Text = currentCategoryType == "Expenses" ?
+                        Text = GetSelectedCategoryType() == "Expenses" ?
                             "У вас немає категорій витрат для видалення" :
                             "У вас немає категорій доходів для видалення",
                         FontSize = 16,
@@ -159,34 +161,46 @@ namespace t
             // Іконка
             try
             {
-                Image iconImage = new Image
+                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Categories", image);
+                if (File.Exists(iconPath))
                 {
-                    Width = 60,
-                    Height = 60,
-                    Margin = new Thickness(0, 0, 0, 10),
-                    Source = new BitmapImage(new Uri($"C:/t/t/Properties/References/Categories/{image}")),
-                    Stretch = Stretch.Uniform
-                };
-                contentPanel.Children.Add(iconImage);
+                    Image iconImage = new Image
+                    {
+                        Width = 60,
+                        Height = 60,
+                        Margin = new Thickness(0, 0, 0, 10),
+                        Source = new BitmapImage(new Uri(iconPath)),
+                        Stretch = Stretch.Uniform
+                    };
+                    contentPanel.Children.Add(iconImage);
+                }
+                else
+                {
+                    // Спробуємо інший шлях
+                    iconPath = $"C:/t/t/Properties/References/Categories/{image}";
+                    if (File.Exists(iconPath))
+                    {
+                        Image iconImage = new Image
+                        {
+                            Width = 60,
+                            Height = 60,
+                            Margin = new Thickness(0, 0, 0, 10),
+                            Source = new BitmapImage(new Uri(iconPath)),
+                            Stretch = Stretch.Uniform
+                        };
+                        contentPanel.Children.Add(iconImage);
+                    }
+                    else
+                    {
+                        // Створюємо placeholder
+                        CreateIconPlaceholder(contentPanel, categoryName);
+                    }
+                }
             }
             catch
             {
-                Border placeholder = new Border
-                {
-                    Width = 60,
-                    Height = 60,
-                    Margin = new Thickness(0, 0, 0, 10),
-                    Background = Brushes.LightGray,
-                    CornerRadius = new CornerRadius(30),
-                    Child = new TextBlock
-                    {
-                        Text = "📁",
-                        FontSize = 24,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center
-                    }
-                };
-                contentPanel.Children.Add(placeholder);
+                // Створюємо placeholder
+                CreateIconPlaceholder(contentPanel, categoryName);
             }
 
             // Назва категорії
@@ -211,6 +225,28 @@ namespace t
             CategoriesPanel.Children.Add(categoryBorder);
         }
 
+        private void CreateIconPlaceholder(StackPanel panel, string categoryName)
+        {
+            Border placeholder = new Border
+            {
+                Width = 60,
+                Height = 60,
+                Margin = new Thickness(0, 0, 0, 10),
+                Background = Brushes.LightGray,
+                CornerRadius = new CornerRadius(30),
+                Child = new TextBlock
+                {
+                    Text = categoryName.Length > 0 ? categoryName[0].ToString() : "?",
+                    FontSize = 24,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = Brushes.White
+                }
+            };
+            panel.Children.Add(placeholder);
+        }
+
         private void CategoryBorder_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is Border border && border.Tag != null && int.TryParse(border.Tag.ToString(), out int categoryId))
@@ -223,8 +259,6 @@ namespace t
 
                 // Активуємо кнопку видалення
                 btnDelete.IsEnabled = true;
-
-                // Показуємо повідомлення
                 txtSelectedCategory.Text = $"Вибрано: {selectedCategoryName}";
             }
         }
@@ -309,19 +343,22 @@ namespace t
         {
             try
             {
+                string currentCategoryType = GetSelectedCategoryType();
+
                 using (MySqlConnection connection = new MySqlConnection(connectionString))
                 {
                     connection.Open();
 
-                    string expensesTable = currentCategoryType == "Expenses" ? "expenses" : "income";
+                    // Визначаємо назви таблиць в залежності від типу категорії
+                    string recordsTable = currentCategoryType == "Expenses" ? "expenses" : "income";
                     string categoryTable = currentCategoryType == "Expenses" ? "expensescategory" : "incomecategory";
 
                     // Видаляємо всі записи з цією категорією
-                    string deleteRecordsQuery = $"DELETE FROM {expensesTable} WHERE IDuser = @userid AND IDcategory = @categoryid";
+                    string deleteRecordsQuery = $"DELETE FROM {recordsTable} WHERE IDuser = @userid AND IDcategory = @categoryid";
                     MySqlCommand deleteRecordsCmd = new MySqlCommand(deleteRecordsQuery, connection);
                     deleteRecordsCmd.Parameters.AddWithValue("@userid", currentUserId);
                     deleteRecordsCmd.Parameters.AddWithValue("@categoryid", selectedCategoryId);
-                    deleteRecordsCmd.ExecuteNonQuery();
+                    int recordsDeleted = deleteRecordsCmd.ExecuteNonQuery();
 
                     // Видаляємо саму категорію
                     string deleteCategoryQuery = $"DELETE FROM {categoryTable} WHERE IDuser = @userid AND IDcategory = @categoryid";
@@ -333,7 +370,8 @@ namespace t
 
                     if (rowsAffected > 0)
                     {
-                        MessageBox.Show($"Категорію \"{selectedCategoryName}\" успішно видалено", "Успіх",
+                        MessageBox.Show($"Категорію \"{selectedCategoryName}\" успішно видалено!\n" +
+                                      $"Також видалено {recordsDeleted} записів з цією категорією.", "Успіх",
                             MessageBoxButton.OK, MessageBoxImage.Information);
 
                         // Оновлюємо список категорій
@@ -342,7 +380,17 @@ namespace t
                         // Скидаємо вибір
                         ResetSelection();
                     }
+                    else
+                    {
+                        MessageBox.Show("Не вдалося видалити категорію", "Помилка",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
                 }
+            }
+            catch (MySqlException mysqlEx)
+            {
+                MessageBox.Show($"Помилка бази даних: {mysqlEx.Message}\nКод помилки: {mysqlEx.Number}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception ex)
             {

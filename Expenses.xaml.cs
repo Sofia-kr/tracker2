@@ -1,7 +1,9 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,144 +16,473 @@ namespace t
     {
         private int currentUserId;
         private DateTime currentDate;
-        private string connectionString = "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
-        // Словники для зберігання категорій
-        private Dictionary<string, CategoryInfo> expenseCategories = new Dictionary<string, CategoryInfo>();
-        private Dictionary<string, CategoryInfo> incomeCategories = new Dictionary<string, CategoryInfo>();
+        private ViewType viewType;
 
-        // Поточні змінні
-        private string currentOperationType = "Витрати";
-        private string selectedCategoryName = "";
+        private string connectionString =
+            "server=sql7.freesqldatabase.com;port=3306;user=sql7811018;password=aBIaRrIe8v;database=sql7811018;Charset=utf8mb4;";
+
         private int selectedCategoryId = 0;
+        private string selectedCategoryName = "";
         private string selectedCategoryImage = "";
+        private Button selectedCategoryButton = null;
 
-        // Клас для зберігання інформації про категорію
-        private class CategoryInfo
-        {
-            public int Id { get; set; }
-            public string Image { get; set; }
-            public string Name { get; set; }
-        }
+        // Шлях до папки з іконками
+        private string iconsPath = @"C:\t\t\Properties\References\Categories\";
 
-        public Expenses(int userId, DateTime cDate)
+        public Expenses(int userId, DateTime date, ViewType type)
         {
             InitializeComponent();
             currentUserId = userId;
-            currentDate = cDate;
-            // Ініціалізація
-            InitializeWindow(currentDate);
+            currentDate = date;
+            viewType = type;
+
+            DatePicker.SelectedDate = date;
+
+            // Встановлюємо вибраний тип залежно від viewType - ВИПРАВЛЕНО
+            switch (viewType)
+            {
+                case ViewType.Expenses:
+                    ChoiceType.SelectedIndex = 0;
+                    break;
+                case ViewType.Income:
+                    ChoiceType.SelectedIndex = 1;
+                    break;
+                case ViewType.Savings:
+                    ChoiceType.SelectedIndex = 2;
+                    break;
+            }
+
+            UpdateInterface();
+            LoadBalance();
+            
         }
 
-        private void InitializeWindow(DateTime currentDateTime)
+        private void AmountInput_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
-            // Встановлюємо поточну дату
-            DatePicker.SelectedDate = currentDateTime;
+            // Дозволяємо тільки цифри, кому та крапку
+            Regex regex = new Regex(@"^[0-9]+([.,][0-9]{0,2})?$");
+            TextBox tb = sender as TextBox;
+            string futureText = tb.Text.Insert(tb.SelectionStart, e.Text);
+            e.Handled = !regex.IsMatch(futureText);
+        }
 
-            // Завантажуємо баланс
-            LoadBalance();
-
-            // Встановлюємо початковий тип операції
-            ChoiceType.SelectedIndex = 0;
-
-            // Оновлюємо інтерфейс
+        private void ChoiceType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
             UpdateInterface();
         }
 
         private void UpdateInterface()
         {
+            string mode = (ChoiceType.SelectedItem as ComboBoxItem).Content.ToString();
+            CategoriesPanel.Children.Clear();
+            selectedCategoryId = 0;
+            selectedCategoryName = "";
+            selectedCategoryImage = "";
+            selectedCategoryButton = null;
 
-            // Оновлюємо категорії в залежності від типу
-            if (currentOperationType == "Витрати")
+            // Оновлюємо заголовок
+            if (mode == "Витрати")
             {
-                LoadExpenseCategories();
+                BalanceTitle.Text = "Загальний баланс:";
+                LoadBalance();
                 CategoryTitle.Text = "Категорії витрат";
-                InfoText3.Text = "• Максимум 12 категорій витрат";
-                CategoryPanel.Visibility = Visibility.Visible;
+                CategoryCount.Text = "";
+                LoadCategories("expensescategory", "CNameExpenses", "ImageExpenses");
+                CommentPanel.Visibility = Visibility.Visible;
+                CommentInput.Text = "";
+                AddCategoryButton.Visibility = Visibility.Visible;
             }
-            else if (currentOperationType == "Доходи")
+            else if (mode == "Доходи")
             {
-                LoadIncomeCategories();
+                BalanceTitle.Text = "Загальний баланс:";
+                LoadBalance();
                 CategoryTitle.Text = "Категорії доходів";
-                InfoText3.Text = "• Максимум 12 категорій доходів";
-                CategoryPanel.Visibility = Visibility.Visible;
+                CategoryCount.Text = "";
+                LoadCategories("incomecategory", "CNameIncome", "ImageIncome");
+                CommentPanel.Visibility = Visibility.Visible;
+                CommentInput.Text = "";
+                AddCategoryButton.Visibility = Visibility.Visible;
             }
-            else if (currentOperationType == "Заощадження")
+            else // Заощадження - ВИПРАВЛЕНО
             {
+                BalanceTitle.Text = "Заощаджено всього:";
+                LoadSavingsBalance();
                 CategoryTitle.Text = "Заощадження";
-                InfoText1.Text = "• Для заощаджень категорії не потрібні";
-                InfoText2.Text = "• Сума відкладається на заощадження";
-                InfoText3.Text = "• Кошти можна витратити на цілі";
-                lblCategoryCount.Text = "";
+                CategoryCount.Text = "(категорії не потрібні)";
+                CommentPanel.Visibility = Visibility.Collapsed;
+                selectedCategoryName = "Заощадження";
+                selectedCategoryId = 0;
+                AddCategoryButton.Visibility = Visibility.Collapsed;
+
+                // Очищаємо панель категорій
                 CategoriesPanel.Children.Clear();
 
-                // Показуємо інформацію про заощадження
-                TextBlock savingsInfo = new TextBlock
-                {
-                    Text = "Заощадження не потребують категорій.\nВведіть суму та натисніть 'Записати'.",
-                    FontSize = 16,
-                    Foreground = Brushes.Gray,
-                    TextWrapping = TextWrapping.Wrap,
-                    TextAlignment = TextAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
+            }
+        }
 
-                CategoriesPanel.Children.Add(savingsInfo);
+        private void LoadCategories(string table, string nameCol, string imgCol)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+
+                    string query = $"SELECT IDcategory, {nameCol}, {imgCol} FROM {table} WHERE IDuser = @uid";
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@uid", currentUserId);
+
+                    int categoryCount = 0;
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            categoryCount++;
+                            int id = reader.GetInt32("IDcategory");
+                            string name = reader[nameCol].ToString();
+                            string img = reader[imgCol].ToString();
+
+                            CreateCategoryButton(id, name, img);
+                        }
+                    }
+
+                    // Оновлюємо кількість категорій
+                    CategoryCount.Text = $"({categoryCount} категорій)";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка завантаження категорій: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void CreateCategoryButton(int id, string name, string img)
+        {
+            Button button = new Button
+            {
+                Width = 110,
+                Height = 120,
+                Margin = new Thickness(5),
+                Background = Brushes.White,
+                BorderBrush = Brushes.LightGray,
+                BorderThickness = new Thickness(1),
+                Tag = new Tuple<int, string, string>(id, name, img),
+                Style = (Style)FindResource(typeof(Button))
+            };
+
+            StackPanel panel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            // Додаємо іконку
+            try
+            {
+                string iconPath = Path.Combine(iconsPath, img);
+                if (File.Exists(iconPath))
+                {
+                    Image iconImage = new Image
+                    {
+                        Width = 50,
+                        Height = 50,
+                        Source = new BitmapImage(new Uri(iconPath)),
+                        Stretch = Stretch.Uniform
+                    };
+                    panel.Children.Add(iconImage);
+                }
+                else
+                {
+                    // Спробувати альтернативний шлях
+                    string altPath = $"C:/t/t/Properties/References/Categories/{img}";
+                    if (File.Exists(altPath))
+                    {
+                        Image iconImage = new Image
+                        {
+                            Width = 50,
+                            Height = 50,
+                            Source = new BitmapImage(new Uri(altPath)),
+                            Stretch = Stretch.Uniform
+                        };
+                        panel.Children.Add(iconImage);
+                    }
+                    else
+                    {
+                        // Створити placeholder
+                        Border placeholder = new Border
+                        {
+                            Width = 50,
+                            Height = 50,
+                            Background = Brushes.LightGray,
+                            CornerRadius = new CornerRadius(25),
+                            Child = new TextBlock
+                            {
+                                Text = name.Length > 0 ? name[0].ToString().ToUpper() : "?",
+                                FontSize = 20,
+                                FontWeight = FontWeights.Bold,
+                                HorizontalAlignment = HorizontalAlignment.Center,
+                                VerticalAlignment = VerticalAlignment.Center,
+                                Foreground = Brushes.White
+                            }
+                        };
+                        panel.Children.Add(placeholder);
+                    }
+                }
+            }
+            catch
+            {
+                // Створити placeholder при помилці
+                Border placeholder = new Border
+                {
+                    Width = 50,
+                    Height = 50,
+                    Background = Brushes.LightGray,
+                    CornerRadius = new CornerRadius(25),
+                    Child = new TextBlock
+                    {
+                        Text = name.Length > 0 ? name[0].ToString().ToUpper() : "?",
+                        FontSize = 20,
+                        FontWeight = FontWeights.Bold,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Foreground = Brushes.White
+                    }
+                };
+                panel.Children.Add(placeholder);
             }
 
-            UpdateCategoryButtons();
-            ClearCategorySelection();
-            ClearForm();
+            // Додаємо назву категорії
+            TextBlock nameText = new TextBlock
+            {
+                Text = name,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                FontSize = 14,
+                Margin = new Thickness(0, 5, 0, 0)
+            };
+            panel.Children.Add(nameText);
+
+            button.Content = panel;
+            button.Click += Category_Click;
+            CategoriesPanel.Children.Add(button);
+        }
+
+        private void Category_Click(object sender, RoutedEventArgs e)
+        {
+            // Скидаємо попередню вибрану кнопку
+            if (selectedCategoryButton != null)
+            {
+                selectedCategoryButton.Background = Brushes.White;
+                selectedCategoryButton.BorderBrush = Brushes.LightGray;
+                selectedCategoryButton.Foreground = Brushes.Black;
+            }
+
+            // Виділяємо нову вибрану кнопку
+            Button clickedButton = sender as Button;
+            clickedButton.Background = new SolidColorBrush(Color.FromArgb(255, 74, 144, 226));
+            clickedButton.Foreground = Brushes.White;
+            clickedButton.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 74, 144, 226));
+
+            var data = clickedButton.Tag as Tuple<int, string, string>;
+            selectedCategoryId = data.Item1;
+            selectedCategoryName = data.Item2;
+            selectedCategoryImage = data.Item3;
+            selectedCategoryButton = clickedButton;
+
+        }
+
+        private void AmountInput_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (AmountInput.Text.Contains(","))
+            {
+                int pos = AmountInput.SelectionStart;
+                AmountInput.Text = AmountInput.Text.Replace(",", ".");
+                AmountInput.SelectionStart = Math.Min(pos, AmountInput.Text.Length);
+            }
+        }
+
+        private void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Перевірка суми
+            if (!decimal.TryParse(AmountInput.Text, out decimal amount) || amount <= 0)
+            {
+                MessageBox.Show("Будь ласка, введіть коректну суму більше нуля", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                AmountInput.Focus();
+                return;
+            }
+
+            // Перевірка дати
+            if (DatePicker.SelectedDate == null)
+            {
+                MessageBox.Show("Будь ласка, оберіть дату", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                DatePicker.Focus();
+                return;
+            }
+
+            string mode = (ChoiceType.SelectedItem as ComboBoxItem).Content.ToString();
+
+            // Перевірка категорії для витрат та доходів
+            if ((mode == "Витрати" || mode == "Доходи") && selectedCategoryId == 0)
+            {
+                MessageBox.Show("Будь ласка, оберіть категорію", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (mode == "Витрати") SaveExpense(amount);
+            else if (mode == "Доходи") SaveIncome(amount);
+            else SaveSavings(amount);
+        }
+
+        private void SaveExpense(decimal amount)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+
+                    string query = @"INSERT INTO expenses 
+                    (IDuser, IDcategory, CategoryImageExpenses, CategoryNameExpenses, AmoutExpenses, ExpenseDate,CommentExpenses)
+                    VALUES (@u, @c, @i, @n, @a, @d, @e)";
+
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@u", currentUserId);
+                    cmd.Parameters.AddWithValue("@c", selectedCategoryId);
+                    cmd.Parameters.AddWithValue("@i", selectedCategoryImage);
+                    cmd.Parameters.AddWithValue("@n", selectedCategoryName);
+                    cmd.Parameters.AddWithValue("@a", amount);
+                    cmd.Parameters.AddWithValue("@d", DatePicker.SelectedDate);
+                    cmd.Parameters.AddWithValue("@e", CommentInput.Text);
+
+                    cmd.ExecuteNonQuery();
+
+                    MessageBox.Show("Витрату успішно записано!", "Успіх",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    MainWindow mainWindow = new MainWindow(currentUserId);
+                    mainWindow.Show();
+                    this.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка збереження витрати: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SaveIncome(decimal amount)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+
+                    string query = @"INSERT INTO income 
+                    (IDuser, IDcategory, CategoryImageIncome, CategoryNameIncome, AmountIncome, IncomeDate, CommentIncome)
+                    VALUES (@u, @c, @i, @n, @a, @d, @com)";
+
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@u", currentUserId);
+                    cmd.Parameters.AddWithValue("@c", selectedCategoryId);
+                    cmd.Parameters.AddWithValue("@i", selectedCategoryImage);
+                    cmd.Parameters.AddWithValue("@n", selectedCategoryName);
+                    cmd.Parameters.AddWithValue("@a", amount);
+                    cmd.Parameters.AddWithValue("@d", DatePicker.SelectedDate);
+                    cmd.Parameters.AddWithValue("@com", CommentInput.Text);
+
+                    cmd.ExecuteNonQuery();
+
+                    MessageBox.Show("Дохід успішно записано!", "Успіх",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    MainWindow mainWindow = new MainWindow(currentUserId);
+                    mainWindow.Show();
+                    this.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка збереження доходу: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SaveSavings(decimal amount)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+                    string insertQuery = @"INSERT INTO saving (IDuser, AmoutSaving, SavingDate)
+                                  VALUES (@u, @a, @d)";
+                    MySqlCommand insertCmd = new MySqlCommand(insertQuery, con);
+                    insertCmd.Parameters.AddWithValue("@u", currentUserId);
+                    insertCmd.Parameters.AddWithValue("@a", amount);
+                    insertCmd.Parameters.AddWithValue("@d", DatePicker.SelectedDate.Value);
+                    insertCmd.ExecuteNonQuery();
+
+                    MessageBox.Show("Заощадження успішно додано!", "Успіх",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    MainWindow mainWindow = new MainWindow(currentUserId);
+                    mainWindow.Show();
+                    this.Close();
+                }
+            }
+            catch (MySqlException mysqlEx)
+            {
+                MessageBox.Show($"Помилка бази даних при збереженні заощаджень: {mysqlEx.Message}\nКод помилки: {mysqlEx.Number}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка збереження заощаджень: {ex.Message}", "Помилка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void LoadBalance()
         {
             try
             {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                using (MySqlConnection con = new MySqlConnection(connectionString))
                 {
-                    connection.Open();
+                    con.Open();
 
-                    // Отримуємо загальний баланс (доходи - витрати)
-                    decimal totalIncome = 0;
-                    decimal totalExpenses = 0;
+                    // Баланс = доходи - витрати (без заощаджень)
+                    string query = @"
+                SELECT 
+                    (SELECT COALESCE(SUM(AmountIncome), 0) FROM income WHERE IDuser = @UserId) -
+                    (SELECT COALESCE(SUM(AmoutExpenses), 0) FROM expenses WHERE IDuser = @UserId) AS Balance";
 
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@UserId", currentUserId);
 
-                    // Доходи
-                    string incomeQuery = "SELECT SUM(AmountIncome) FROM income WHERE IDuser = @userid";
-                    MySqlCommand incomeCmd = new MySqlCommand(incomeQuery, connection);
-                    incomeCmd.Parameters.AddWithValue("@userid", currentUserId);
-                    object incomeResult = incomeCmd.ExecuteScalar();
-                    if (incomeResult != null && incomeResult != DBNull.Value)
+                    object result = cmd.ExecuteScalar();
+                    if (result != null && result != DBNull.Value)
                     {
-                        totalIncome = Convert.ToDecimal(incomeResult);
-                    }
+                        decimal balance = Convert.ToDecimal(result);
+                        GeneralBalance.Text = balance.ToString("F2");
 
-                    // Витрати
-                    string expenseQuery = "SELECT SUM(AmoutExpenses) FROM expenses WHERE IDuser = @userid";
-                    MySqlCommand expenseCmd = new MySqlCommand(expenseQuery, connection);
-                    expenseCmd.Parameters.AddWithValue("@userid", currentUserId);
-                    object expenseResult = expenseCmd.ExecuteScalar();
-                    if (expenseResult != null && expenseResult != DBNull.Value)
-                    {
-                        totalExpenses = Convert.ToDecimal(expenseResult);
-                    }
-
-                 
-                    decimal balance = totalIncome - totalExpenses;
-                    GeneralBalance.Text = $"{balance:N2} ₴";
-
-                    // Змінюємо колір в залежності від значення
-                    if (balance < 0)
-                    {
-                        GeneralBalance.Foreground = Brushes.Red;
-                    }
-                    else if (balance > 0)
-                    {
-                        GeneralBalance.Foreground = Brushes.Green;
+                        // Зміна кольору в залежності від балансу
+                        if (balance < 0)
+                            GeneralBalance.Foreground = Brushes.Red;
+                        else if (balance > 0)
+                            GeneralBalance.Foreground = Brushes.Green;
+                        else
+                            GeneralBalance.Foreground = Brushes.Gray;
                     }
                     else
                     {
+                        GeneralBalance.Text = "0.00";
                         GeneralBalance.Foreground = Brushes.Gray;
                     }
                 }
@@ -160,703 +491,88 @@ namespace t
             {
                 MessageBox.Show($"Помилка завантаження балансу: {ex.Message}", "Помилка",
                     MessageBoxButton.OK, MessageBoxImage.Error);
-                GeneralBalance.Text = "0.00 ₴";
+                GeneralBalance.Text = "0.00";
             }
         }
 
-        private void LoadExpenseCategories()
+        private void LoadSavingsBalance()
         {
             try
             {
-                expenseCategories.Clear();
-
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                using (MySqlConnection con = new MySqlConnection(connectionString))
                 {
-                    connection.Open();
-                    string query = "SELECT IDcategory, CNameExpenses, ImageExpenses FROM expensescategory WHERE IDuser = @userid ORDER BY CNameExpenses";
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-                    MySqlDataReader reader = cmd.ExecuteReader();
+                    con.Open();
 
-                    while (reader.Read())
+                    string query = "SELECT COALESCE(SUM(AmoutSaving), 0) FROM saving WHERE IDuser = @UserId";
+                    MySqlCommand cmd = new MySqlCommand(query, con);
+                    cmd.Parameters.AddWithValue("@UserId", currentUserId);
+
+                    object result = cmd.ExecuteScalar();
+                    if (result != null && result != DBNull.Value)
                     {
-                        int categoryId = reader.GetInt32("IDcategory");
-                        string categoryName = reader["CNameExpenses"].ToString();
-                        string image = reader["ImageExpenses"].ToString();
-
-                        expenseCategories[categoryName] = new CategoryInfo
-                        {
-                            Id = categoryId,
-                            Name = categoryName,
-                            Image = image
-                        };
-                    }
-                    reader.Close();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Помилка завантаження категорій витрат: {ex.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void LoadIncomeCategories()
-        {
-            try
-            {
-                incomeCategories.Clear();
-
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-                    string query = "SELECT IDcategory, CNameIncome, ImageIncome FROM incomecategory WHERE IDuser = @userid ORDER BY CNameIncome";
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-                    MySqlDataReader reader = cmd.ExecuteReader();
-
-                    while (reader.Read())
-                    {
-                        int categoryId = reader.GetInt32("IDcategory");
-                        string categoryName = reader["CNameIncome"].ToString();
-                        string image = reader["ImageIncome"].ToString();
-
-                        incomeCategories[categoryName] = new CategoryInfo
-                        {
-                            Id = categoryId,
-                            Name = categoryName,
-                            Image = image
-                        };
-                    }
-                    reader.Close();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Помилка завантаження категорій доходів: {ex.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        public void UpdateCategoryButtons()
-        {
-            // Очищаємо контейнер для кнопок
-            if (CategoriesPanel == null) return;
-
-            CategoriesPanel.Children.Clear();
-
-            // Якщо заощадження - не показуємо категорії
-            if (currentOperationType == "Заощадження")
-            {
-                return;
-            }
-
-            // Отримуємо поточні категорії в залежності від типу операції
-            Dictionary<string, CategoryInfo> currentCategories =
-                currentOperationType == "Доходи" ? incomeCategories : expenseCategories;
-
-            // Оновлюємо кількість категорій
-            lblCategoryCount.Text = $"{currentCategories.Count}/12 категорій";
-
-            // Перевіряємо, чи є категорії
-            if (currentCategories.Count == 0)
-            {
-                TextBlock noCategoriesText = new TextBlock
-                {
-                    Text = "Немає категорій. Натисніть '+' щоб створити нову.",
-                    FontSize = 16,
-                    Foreground = Brushes.Gray,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    TextWrapping = TextWrapping.Wrap,
-                    TextAlignment = TextAlignment.Center,
-                    Margin = new Thickness(20)
-                };
-
-                Border noCategoriesBorder = new Border
-                {
-                    Background = Brushes.LightYellow,
-                    BorderBrush = Brushes.LightGray,
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(20),
-                    Child = noCategoriesText
-                };
-
-                CategoriesPanel.Children.Add(noCategoriesBorder);
-            }
-            else
-            {
-                // Створюємо кнопки для кожної категорії
-                foreach (var category in currentCategories)
-                {
-                    CategoryInfo info = category.Value;
-
-                    // Створюємо контейнер для кнопки
-                    Border categoryBorder = new Border
-                    {
-                        Width = 150,
-                        Height = 150,
-                        Margin = new Thickness(10),
-                        Background = Brushes.White,
-                        BorderBrush = Brushes.LightGray,
-                        BorderThickness = new Thickness(1),
-                        CornerRadius = new CornerRadius(10),
-                        Cursor = Cursors.Hand,
-                        Tag = info // Зберігаємо інформацію про категорію в Tag
-                    };
-
-                    // Створюємо StackPanel для вмісту кнопки
-                    StackPanel contentPanel = new StackPanel
-                    {
-                        Orientation = Orientation.Vertical,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
-
-                    // Додаємо іконку
-                    try
-                    {
-                        Image iconImage = new Image
-                        {
-                            Width = 60,
-                            Height = 60,
-                            Margin = new Thickness(0, 0, 0, 10),
-                            Source = new BitmapImage(new Uri($"C:/t/t/Properties/References/Categories/{info.Image}")),
-                            Stretch = Stretch.Uniform
-                        };
-                        contentPanel.Children.Add(iconImage);
-                    }
-                    catch
-                    {
-                        // Якщо іконка не знайдена, використовуємо заміщувач
-                        Border placeholder = new Border
-                        {
-                            Width = 60,
-                            Height = 60,
-                            Margin = new Thickness(0, 0, 0, 10),
-                            Background = Brushes.LightGray,
-                            CornerRadius = new CornerRadius(30),
-                            Child = new TextBlock
-                            {
-                                Text = "📁",
-                                FontSize = 24,
-                                HorizontalAlignment = HorizontalAlignment.Center,
-                                VerticalAlignment = VerticalAlignment.Center
-                            }
-                        };
-                        contentPanel.Children.Add(placeholder);
-                    }
-
-                    // Додаємо назву категорії
-                    TextBlock categoryNameText = new TextBlock
-                    {
-                        Text = info.Name,
-                        FontSize = 14,
-                        FontWeight = FontWeights.SemiBold,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        TextAlignment = TextAlignment.Center,
-                        TextWrapping = TextWrapping.Wrap,
-                        MaxWidth = 130
-                    };
-                    contentPanel.Children.Add(categoryNameText);
-
-                    // Додаємо обробник подій
-                    categoryBorder.MouseDown += CategoryButton_MouseDown;
-                    categoryBorder.MouseEnter += CategoryBorder_MouseEnter;
-                    categoryBorder.MouseLeave += CategoryBorder_MouseLeave;
-
-                    categoryBorder.Child = contentPanel;
-                    CategoriesPanel.Children.Add(categoryBorder);
-                }
-            }
-
-            // Додаємо кнопку для додавання нової категорії (тільки для доходів і витрат)
-            if (currentOperationType != "Заощадження")
-            {
-                Border addCategoryBorder = new Border
-                {
-                    Width = 150,
-                    Height = 150,
-                    Margin = new Thickness(10),
-                    Background = Brushes.LightBlue,
-                    BorderBrush = Brushes.DodgerBlue,
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(10),
-                    Cursor = Cursors.Hand
-                };
-
-                StackPanel addContentPanel = new StackPanel
-                {
-                    Orientation = Orientation.Vertical,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-
-                TextBlock plusText = new TextBlock
-                {
-                    Text = "+",
-                    FontSize = 48,
-                    FontWeight = FontWeights.Bold,
-                    Foreground = Brushes.DodgerBlue,
-                    HorizontalAlignment = HorizontalAlignment.Center
-                };
-                addContentPanel.Children.Add(plusText);
-
-                TextBlock addText = new TextBlock
-                {
-                    Text = "Додати категорію",
-                    FontSize = 14,
-                    FontWeight = FontWeights.SemiBold,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    TextAlignment = TextAlignment.Center,
-                    TextWrapping = TextWrapping.Wrap,
-                    MaxWidth = 130,
-                    Margin = new Thickness(0, 10, 0, 0)
-                };
-                addContentPanel.Children.Add(addText);
-
-                addCategoryBorder.Child = addContentPanel;
-                addCategoryBorder.MouseDown += AddCategoryButton_Click;
-                addCategoryBorder.MouseEnter += AddCategoryBorder_MouseEnter;
-                addCategoryBorder.MouseLeave += AddCategoryBorder_MouseLeave;
-
-                CategoriesPanel.Children.Add(addCategoryBorder);
-            }
-        }
-
-        private void CategoryButton_MouseDown(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is Border border && border.Tag is CategoryInfo categoryInfo)
-            {
-                selectedCategoryName = categoryInfo.Name;
-                selectedCategoryId = categoryInfo.Id;
-                selectedCategoryImage = categoryInfo.Image;
-
-                // Підсвічуємо вибрану категорію
-                HighlightSelectedCategory(border);
-
-                // Показуємо повідомлення про вибір категорії
-                MessageBox.Show($"Вибрано категорію: {selectedCategoryName}", "Категорія вибрана",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        }
-
-        private void AddCategoryButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Відкриваємо вікно додавання категорії
-            AddCategory addCategoryWindow = new AddCategory(currentUserId, currentOperationType);
-            addCategoryWindow.ShowDialog();
-
-            // Оновлюємо категорії після додавання
-            if (currentOperationType == "Витрати")
-            {
-                LoadExpenseCategories();
-            }
-            else if (currentOperationType == "Доходи")
-            {
-                LoadIncomeCategories();
-            }
-
-            UpdateCategoryButtons();
-            ClearCategorySelection();
-        }
-
-        private void HighlightSelectedCategory(Border selectedBorder)
-        {
-            // Скидаємо підсвічування всіх кнопок категорій
-            foreach (var child in CategoriesPanel.Children)
-            {
-                if (child is Border border)
-                {
-                    if (border.Tag is CategoryInfo)
-                    {
-                        border.Background = Brushes.White;
-                        border.BorderBrush = Brushes.LightGray;
-                        border.BorderThickness = new Thickness(1);
-                    }
-                }
-            }
-
-            // Підсвічуємо вибрану кнопку
-            selectedBorder.Background = Brushes.LightSkyBlue;
-            selectedBorder.BorderBrush = Brushes.DodgerBlue;
-            selectedBorder.BorderThickness = new Thickness(2);
-        }
-
-        private void ClearCategorySelection()
-        {
-            selectedCategoryName = "";
-            selectedCategoryId = 0;
-            selectedCategoryImage = "";
-
-            // Скидаємо підсвічування всіх кнопок
-            foreach (var child in CategoriesPanel.Children)
-            {
-                if (child is Border border)
-                {
-                    if (border.Tag is CategoryInfo)
-                    {
-                        border.Background = Brushes.White;
-                        border.BorderBrush = Brushes.LightGray;
-                        border.BorderThickness = new Thickness(1);
-                    }
-                }
-            }
-        }
-
-        private void CategoryBorder_MouseEnter(object sender, MouseEventArgs e)
-        {
-            if (sender is Border border)
-            {
-                border.Background = Brushes.AliceBlue;
-                border.BorderBrush = Brushes.DodgerBlue;
-            }
-        }
-
-        private void CategoryBorder_MouseLeave(object sender, MouseEventArgs e)
-        {
-            if (sender is Border border)
-            {
-                // Перевіряємо, чи це вибрана категорія
-                if (border.Tag is CategoryInfo categoryInfo &&
-                    categoryInfo.Id == selectedCategoryId)
-                {
-                    border.Background = Brushes.LightSkyBlue;
-                    border.BorderBrush = Brushes.DodgerBlue;
-                }
-                else
-                {
-                    border.Background = Brushes.White;
-                    border.BorderBrush = Brushes.LightGray;
-                }
-            }
-        }
-
-        private void AddCategoryBorder_MouseEnter(object sender, MouseEventArgs e)
-        {
-            if (sender is Border border)
-            {
-                border.Background = Brushes.LightCyan;
-            }
-        }
-
-        private void AddCategoryBorder_MouseLeave(object sender, MouseEventArgs e)
-        {
-            if (sender is Border border)
-            {
-                border.Background = Brushes.LightBlue;
-            }
-        }
-
-        private void ChoiceType_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ChoiceType.SelectedItem is ComboBoxItem selectedItem)
-            {
-                currentOperationType = selectedItem.Content.ToString();
-
-                // Оновлюємо інтерфейс
-                UpdateInterface();
-            }
-        }
-
-        private void ClearForm()
-        {
-            AmountInput.Text = "";
-            CommentInput.Text = "";
-            //DatePicker.SelectedDate = DateTime.Now;
-        }
-
-        private void SaveButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Перевірки
-            if (!ValidateInput())
-                return;
-
-            // Визначаємо тип операції та зберігаємо
-            if (currentOperationType == "Витрати")
-            {
-                SaveExpense();
-            }
-            else if (currentOperationType == "Доходи")
-            {
-                SaveIncome();
-            }
-            else if (currentOperationType == "Заощадження")
-            {
-                SaveSavings();
-            }
-        }
-
-        private bool ValidateInput()
-        {
-            // Перевірка категорії (тільки для витрат і доходів)
-            if (currentOperationType != "Заощадження")
-            {
-                if (string.IsNullOrEmpty(selectedCategoryName) || selectedCategoryId == 0)
-                {
-                    MessageBox.Show("Будь ласка, виберіть категорію!", "Увага",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return false;
-                }
-            }
-
-            // Перевірка суми
-            if (string.IsNullOrWhiteSpace(AmountInput.Text))
-            {
-                MessageBox.Show("Будь ласка, введіть суму!", "Увага",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                AmountInput.Focus();
-                return false;
-            }
-
-            if (!decimal.TryParse(AmountInput.Text.Replace(',', '.'),
-                System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out decimal amount) || amount <= 0)
-            {
-                MessageBox.Show("Будь ласка, введіть коректну суму (додатне число)!", "Увага",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                AmountInput.Focus();
-                return false;
-            }
-
-            //// Перевірка дати
-            //if (!DatePicker.SelectedDate.HasValue)
-            //{
-            //    MessageBox.Show("Будь ласка, виберіть дату!", "Увага",
-            //        MessageBoxButton.OK, MessageBoxImage.Warning);
-            //    return false;
-            //}
-
-            //if (DatePicker.SelectedDate.Value > DateTime.Now)
-            //{
-            //    MessageBox.Show("Дата не може бути у майбутньому!", "Увага",
-            //        MessageBoxButton.OK, MessageBoxImage.Warning);
-            //    return false;
-            //}
-
-            return true;
-        }
-
-        private void SaveExpense()
-        {
-            try
-            {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-
-                    string query = @"INSERT INTO expenses 
-                           (IDuser, IDcategory, CategotyImageExpenses, CategoryNameExpenses, AmoutExpenses, ExpenseDate) 
-                           VALUES (@userid, @categoryid, @image, @categoryname, @amount, @date)";
-
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-                    cmd.Parameters.AddWithValue("@categoryid", selectedCategoryId);
-                    cmd.Parameters.AddWithValue("@image", selectedCategoryImage);
-                    cmd.Parameters.AddWithValue("@categoryname", selectedCategoryName);
-                    cmd.Parameters.AddWithValue("@amount", decimal.Parse(AmountInput.Text.Replace(',', '.')));
-                    cmd.Parameters.AddWithValue("@date", DatePicker.SelectedDate.Value.ToString("yyyy-MM-dd"));
-
-                    int rowsAffected = cmd.ExecuteNonQuery();
-
-                    if (rowsAffected > 0)
-                    {
-                        MessageBox.Show("Витрати успішно збережено!", "Успіх",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-
-                        // Оновлюємо баланс
-                        LoadBalance();
-
-                        // Повертаємося на головне вікно
-                        ReturnToMainWindow();
+                        decimal savings = Convert.ToDecimal(result);
+                        GeneralBalance.Text = savings.ToString("F2");
+                        GeneralBalance.Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 100, 200)); 
                     }
                     else
                     {
-                        MessageBox.Show("Помилка при збереженні витрат!", "Помилка",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        GeneralBalance.Text = "0.00";
+                        GeneralBalance.Foreground = Brushes.Gray;
                     }
                 }
             }
-            catch (MySqlException mysqlEx)
-            {
-                MessageBox.Show($"Помилка бази даних: {mysqlEx.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
             catch (Exception ex)
             {
-                MessageBox.Show($"Помилка збереження: {ex.Message}", "Помилка",
+                MessageBox.Show($"Помилка завантаження заощаджень: {ex.Message}", "Помилка",
                     MessageBoxButton.OK, MessageBoxImage.Error);
+                GeneralBalance.Text = "0.00";
             }
         }
 
-        private void SaveIncome()
-        {
-            try
-            {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-
-                    string query = @"INSERT INTO income 
-                           (IDuser, IDcategory, CategoryImageIncome, CategoryNameIncome, AmountIncome, IncomeDate) 
-                           VALUES (@userid, @categoryid, @image, @categoryname, @amount, @date)";
-
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-                    cmd.Parameters.AddWithValue("@categoryid", selectedCategoryId);
-                    cmd.Parameters.AddWithValue("@image", selectedCategoryImage);
-                    cmd.Parameters.AddWithValue("@categoryname", selectedCategoryName);
-                    cmd.Parameters.AddWithValue("@amount", decimal.Parse(AmountInput.Text.Replace(',', '.')));
-                    cmd.Parameters.AddWithValue("@date", DatePicker.SelectedDate.Value.ToString("yyyy-MM-dd"));
-
-                    int rowsAffected = cmd.ExecuteNonQuery();
-
-                    if (rowsAffected > 0)
-                    {
-                        MessageBox.Show("Доходи успішно збережено!", "Успіх",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-
-                        // Оновлюємо баланс
-                        LoadBalance();
-
-                        // Повертаємося на головне вікно
-                        ReturnToMainWindow();
-                    }
-                    else
-                    {
-                        MessageBox.Show("Помилка при збереженні доходів!", "Помилка",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
-            }
-            catch (MySqlException mysqlEx)
-            {
-                MessageBox.Show($"Помилка бази даних: {mysqlEx.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Помилка збереження: {ex.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void SaveSavings()
-        {
-            try
-            {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-
-                    string query = @"INSERT INTO saving 
-                           (IDuser, AmoutSaving, SavingDate) 
-                           VALUES (@userid, @amount, @date)";
-
-                    MySqlCommand cmd = new MySqlCommand(query, connection);
-                    cmd.Parameters.AddWithValue("@userid", currentUserId);
-                    cmd.Parameters.AddWithValue("@amount", decimal.Parse(AmountInput.Text.Replace(',', '.')));
-                    cmd.Parameters.AddWithValue("@date", DatePicker.SelectedDate.Value.ToString("yyyy-MM-dd"));
-
-                    int rowsAffected = cmd.ExecuteNonQuery();
-
-                    if (rowsAffected > 0)
-                    {
-                        MessageBox.Show("Заощадження успішно збережено!", "Успіх",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-
-                        // Оновлюємо баланс
-                        LoadBalance();
-
-                        // Повертаємося на головне вікно
-                        ReturnToMainWindow();
-                    }
-                    else
-                    {
-                        MessageBox.Show("Помилка при збереженні заощаджень!", "Помилка",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
-            }
-            catch (MySqlException mysqlEx)
-            {
-                MessageBox.Show($"Помилка бази даних: {mysqlEx.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Помилка збереження: {ex.Message}", "Помилка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void ReturnToMainWindow()
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             MainWindow mainWindow = new MainWindow(currentUserId);
             mainWindow.Show();
             this.Close();
         }
 
-        private void CancelButton_Click(object sender, RoutedEventArgs e)
-        {
-            ReturnToMainWindow();
-        }
-
         private void ReturnExpenses_Click(object sender, RoutedEventArgs e)
         {
-            ReturnToMainWindow();
+            MainWindow mainWindow = new MainWindow(currentUserId);
+            mainWindow.Show();
+            this.Close();
         }
 
-        private void AmountInput_PreviewTextInput(object sender, TextCompositionEventArgs e)
+
+        private void AddCategoryButton_Click(object sender, RoutedEventArgs e)
         {
-            // Дозволяємо тільки цифри та кому/крапку
-            foreach (char c in e.Text)
-            {
-                if (!char.IsDigit(c) && c != '.' && c != ',')
-                {
-                    e.Handled = true;
-                    return;
-                }
-            }
+            string mode = (ChoiceType.SelectedItem as ComboBoxItem).Content.ToString();
 
-            // Перевіряємо, щоб була тільки одна кома/крапка
-            TextBox textBox = sender as TextBox;
-            if (textBox != null)
+            if (mode == "Витрати")
             {
-                string currentText = textBox.Text + e.Text;
-                int dotCount = currentText.Count(c => c == '.' || c == ',');
-
-                if (dotCount > 1)
-                {
-                    e.Handled = true;
-                }
-            }
-        }
-
-        private void AmountInput_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            // Замінюємо кому на крапку
-            TextBox textBox = sender as TextBox;
-            if (textBox != null && textBox.Text.Contains(","))
-            {
-                int cursorPosition = textBox.SelectionStart;
-                textBox.Text = textBox.Text.Replace(',', '.');
-                textBox.SelectionStart = cursorPosition;
-            }
-        }
-
-        private void Window_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
-            {
-                SaveButton_Click(sender, e);
-            }
-            else if (e.Key == Key.Escape)
-            {
+                AddCategory addCategoryWindow = new AddCategory(currentUserId, "Expenses");
+                addCategoryWindow.ShowDialog();
                 this.Close();
             }
+            else if (mode == "Доходи")
+            {
+                AddCategory addCategoryWindow = new AddCategory(currentUserId, "Income");
+           
+                addCategoryWindow.ShowDialog();
+                this.Close();
+            }
+        }
+
+       
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            AmountInput.Focus();
+        }
+
+        // Новий метод для оновлення категорій після додавання
+        public void LoadCategories()
+        {
+            UpdateInterface();
         }
     }
 }
