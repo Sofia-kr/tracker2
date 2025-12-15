@@ -551,20 +551,15 @@ namespace t
             if (mode == "Витрати")
             {
                 AddCategory addCategoryWindow = new AddCategory(currentUserId, "Expenses");
-                addCategoryWindow.Owner = this;
                 addCategoryWindow.ShowDialog();
-
-                // Оновити список категорій після закриття вікна додавання
-                UpdateInterface();
+                this.Close();
             }
             else if (mode == "Доходи")
             {
                 AddCategory addCategoryWindow = new AddCategory(currentUserId, "Income");
-                addCategoryWindow.Owner = this;
+           
                 addCategoryWindow.ShowDialog();
-
-                // Оновити список категорій після закриття вікна додавання
-                UpdateInterface();
+                this.Close();
             }
         }
 

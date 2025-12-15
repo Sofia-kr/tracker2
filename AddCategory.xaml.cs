@@ -409,7 +409,6 @@ namespace t
                         string insertQuery = $"INSERT INTO {tableName} (IDcategory, IDuser, {columnImage}, {columnName}) VALUES (@id, @userid, @image, @name)";
                         using (MySqlCommand cmd = new MySqlCommand(insertQuery, connection))
                         {
-                            cmd.Parameters.AddWithValue("@id", nextId);
                             cmd.Parameters.AddWithValue("@userid", currentUserId);
                             cmd.Parameters.AddWithValue("@image", selectedIcon);
                             cmd.Parameters.AddWithValue("@name", txtCategoryName.Text.Trim());

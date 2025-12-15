@@ -381,6 +381,7 @@ namespace t
             editWindow.ShowDialog();
             UpdateAmountDisplay();
             UpdateGeneralBalance();
+            
         }
 
         private void BtnDeleteCategories_Click(object sender, RoutedEventArgs e)
@@ -389,6 +390,7 @@ namespace t
             deleteWindow.ShowDialog();
             UpdateAmountDisplay();
             UpdateGeneralBalance();
+            
         }
 
         private void DatePicker_SelectedDateChanged(object sender, SelectionChangedEventArgs e)

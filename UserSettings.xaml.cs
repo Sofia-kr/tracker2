@@ -117,6 +117,17 @@ namespace t
             isQuestionModified = true;
         }
 
+        private void TxtAnswer_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (txtAnswer.Text.Length > 100)
+            {
+                txtAnswer.Text = txtAnswer.Text.Substring(0, 100);
+                txtAnswer.CaretIndex = 100;
+            }
+            UpdateCharacterCounts();
+            isQuestionModified = true;
+        }
+
         private void BtnChangePassword_Click(object sender, RoutedEventArgs e)
         {
             // Вмикаємо поля для зміни пароля
@@ -124,7 +135,9 @@ namespace t
             txtNewPassword.IsEnabled = true;
             txtConfirmPassword.IsEnabled = true;
 
-            MessageBox.Show("Введіть поточний пароль, новий пароль та підтвердження.", "Інформація",
+            txtCurrentPassword.Focus();
+
+            MessageBox.Show("Введіть поточний пароль, новий пароль та підтвердження для зміни пароля.", "Інформація",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
@@ -165,7 +178,7 @@ namespace t
             bool hasChanges = false;
             bool updateSuccess = true;
 
-            // Перевірка та оновлення основних даних
+            // ЗБЕРЕЖЕННЯ ОСНОВНИХ ДАНИХ (БЕЗ ПАРОЛЯ)
             if (isDataModified)
             {
                 string newName = txtName.Text.Trim();
@@ -187,7 +200,7 @@ namespace t
 
                 if (!ValidateEmail(newEmail))
                 {
-                    MessageBox.Show("Неправильний формат електронної пошти!", "Помилка",
+                    MessageBox.Show("Неправильний формат електронної пошти! Використовуйте лише @gmail.com", "Помилка",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -215,6 +228,10 @@ namespace t
                         if (rowsAffected > 0)
                         {
                             hasChanges = true;
+                            originalName = newName;
+                            originalEmail = newEmail;
+                            isDataModified = false;
+
                         }
                         else
                         {
@@ -230,7 +247,61 @@ namespace t
                 }
             }
 
-            // Перевірка та оновлення пароля
+            // ЗБЕРЕЖЕННЯ ПИТАННЯ ТА ВІДПОВІДІ (БЕЗ ПАРОЛЯ)
+            if (isQuestionModified)
+            {
+                string newQuestion = txtQuestion.Text.Trim();
+                string newAnswer = txtAnswer.Text.Trim();
+
+                if (string.IsNullOrEmpty(newQuestion) || string.IsNullOrEmpty(newAnswer))
+                {
+                    MessageBox.Show("Питання та відповідь не можуть бути порожніми!", "Помилка",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (newQuestion.Length > 100 || newAnswer.Length > 100)
+                {
+                    MessageBox.Show("Питання та відповідь не можуть перевищувати 100 символів!", "Помилка",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                try
+                {
+                    using (MySqlConnection connection = new MySqlConnection(connectionString))
+                    {
+                        connection.Open();
+
+                        string query = "UPDATE userdata SET SpecialQuestion = @question, SpecialAnswer = @answer WHERE IDuser = @userid";
+                        MySqlCommand cmd = new MySqlCommand(query, connection);
+                        cmd.Parameters.AddWithValue("@question", newQuestion);
+                        cmd.Parameters.AddWithValue("@answer", newAnswer);
+                        cmd.Parameters.AddWithValue("@userid", currentUserId);
+
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected > 0)
+                        {
+                            hasChanges = true;
+                            originalQuestion = newQuestion;
+                            originalAnswer = newAnswer;
+                            isQuestionModified = false;
+
+                        }
+                        else
+                        {
+                            updateSuccess = false;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Помилка оновлення питання: {ex.Message}", "Помилка",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+            }
+
             if (!string.IsNullOrEmpty(txtCurrentPassword.Password) ||
                 !string.IsNullOrEmpty(txtNewPassword.Password) ||
                 !string.IsNullOrEmpty(txtConfirmPassword.Password))
@@ -241,7 +312,7 @@ namespace t
 
                 if (string.IsNullOrEmpty(currentPassword))
                 {
-                    MessageBox.Show("Введіть поточний пароль для зміни!", "Помилка",
+                    MessageBox.Show("Для зміни пароля необхідно ввести поточний пароль!", "Помилка",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -249,6 +320,13 @@ namespace t
                 if (currentPassword != originalPassword)
                 {
                     MessageBox.Show("Поточний пароль невірний!", "Помилка",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(newPassword))
+                {
+                    MessageBox.Show("Введіть новий пароль!", "Помилка",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -283,6 +361,18 @@ namespace t
                         {
                             hasChanges = true;
                             originalPassword = newPassword; // Оновлюємо кешований пароль
+
+                            // Очищаємо поля пароля
+                            txtCurrentPassword.Clear();
+                            txtNewPassword.Clear();
+                            txtConfirmPassword.Clear();
+
+                            // Вимкнути поля пароля
+                            txtCurrentPassword.IsEnabled = false;
+                            txtNewPassword.IsEnabled = false;
+                            txtConfirmPassword.IsEnabled = false;
+
+                            
                         }
                         else
                         {
@@ -298,107 +388,30 @@ namespace t
                 }
             }
 
-            // Перевірка та оновлення питання безпеки
-            if (isQuestionModified)
+            // ОНОВЛЕННЯ ІНТЕРФЕЙСУ ПІСЛЯ УСПІШНОГО ЗБЕРЕЖЕННЯ
+            if (hasChanges)
             {
-                string newQuestion = txtQuestion.Text.Trim();
-                string newAnswer = txtAnswer.Text.Trim();
-
-                if (string.IsNullOrEmpty(newQuestion) || string.IsNullOrEmpty(newAnswer))
-                {
-                    MessageBox.Show("Питання та відповідь не можуть бути порожніми!", "Помилка",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                if (newQuestion.Length > 100 || newAnswer.Length > 100)
-                {
-                    MessageBox.Show("Питання та відповідь не можуть перевищувати 100 символів!", "Помилка",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                // Перевіряємо пароль для зміни питання
-                if (string.IsNullOrEmpty(txtCurrentPassword.Password))
-                {
-                    MessageBox.Show("Для зміни питання необхідно ввести поточний пароль!", "Помилка",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                if (txtCurrentPassword.Password != originalPassword)
-                {
-                    MessageBox.Show("Поточний пароль невірний!", "Помилка",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                try
-                {
-                    using (MySqlConnection connection = new MySqlConnection(connectionString))
-                    {
-                        connection.Open();
-
-                        string query = "UPDATE userdata SET SpecialQuestion = @question, SpecialAnswer = @answer WHERE IDuser = @userid";
-                        MySqlCommand cmd = new MySqlCommand(query, connection);
-                        cmd.Parameters.AddWithValue("@question", newQuestion);
-                        cmd.Parameters.AddWithValue("@answer", newAnswer);
-                        cmd.Parameters.AddWithValue("@userid", currentUserId);
-
-                        int rowsAffected = cmd.ExecuteNonQuery();
-                        if (rowsAffected > 0)
-                        {
-                            hasChanges = true;
-                            originalQuestion = newQuestion;
-                            originalAnswer = newAnswer;
-                        }
-                        else
-                        {
-                            updateSuccess = false;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Помилка оновлення питання: {ex.Message}", "Помилка",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+                UpdateCharacterCounts();
             }
-
-            if (hasChanges && updateSuccess)
-            {
-                MessageBox.Show("Всі зміни успішно збережено!", "Успіх",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-
-                // Очищаємо поля пароля
-                txtCurrentPassword.Clear();
-                txtNewPassword.Clear();
-                txtConfirmPassword.Clear();
-
-                // Вимкнути редагування
-                txtName.IsEnabled = false;
-                txtEmail.IsEnabled = false;
-                txtCurrentPassword.IsEnabled = false;
-                txtNewPassword.IsEnabled = false;
-                txtConfirmPassword.IsEnabled = false;
-                txtQuestion.IsEnabled = false;
-                txtAnswer.IsEnabled = false;
-
-                isDataModified = false;
-                isPasswordModified = false;
-                isQuestionModified = false;
-            }
-            else if (!hasChanges)
+            else if (!isDataModified && !isQuestionModified &&
+                     string.IsNullOrEmpty(txtCurrentPassword.Password) &&
+                     string.IsNullOrEmpty(txtNewPassword.Password) &&
+                     string.IsNullOrEmpty(txtConfirmPassword.Password))
             {
                 MessageBox.Show("Немає змін для збереження.", "Інформація",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
+            MainWindow mainWindow = new MainWindow(currentUserId);
+            mainWindow.Show();
+            this.Close();
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)
         {
-            if (isDataModified || isPasswordModified || isQuestionModified)
+            if (isDataModified || isQuestionModified ||
+                !string.IsNullOrEmpty(txtCurrentPassword.Password) ||
+                !string.IsNullOrEmpty(txtNewPassword.Password) ||
+                !string.IsNullOrEmpty(txtConfirmPassword.Password))
             {
                 MessageBoxResult result = MessageBox.Show("У вас є незбережені зміни. Вийти без збереження?", "Підтвердження",
                     MessageBoxButton.YesNo, MessageBoxImage.Question);

@@ -567,10 +567,7 @@ namespace t
 
             if (dep is DataGridCell cell)
             {
-                // У нашому XAML: 0-Id (прихована), 1-Зображення, 2-Категорія, 3-Коментар, 4-Сума, 5-Дата
                 int columnIndex = cell.Column.DisplayIndex;
-
-                // Дозволяємо редагувати коментар (колонка 3) та суму (колонка 4)
                 if (columnIndex == 3 || columnIndex == 4)
                 {
                     dgChecks.BeginEdit();
@@ -752,10 +749,7 @@ namespace t
             }
         }
 
-        private void BtnSave_Click(object sender, RoutedEventArgs e)
-        {
-            SaveAllChanges();
-        }
+        
 
         private void SaveAllChanges()
         {

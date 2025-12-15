@@ -46,7 +46,6 @@ namespace t
             txtCategoryName.TextChanged += TxtCategoryName_TextChanged;
             txtCategoryName.LostFocus += TxtCategoryName_LostFocus;
             this.Closing += EditCategory_Closing;
-            this.KeyDown += Window_KeyDown;
         }
 
         private void EditCategory_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -613,18 +612,7 @@ namespace t
             this.Close();
         }
 
-        // Додаємо обробку клавіш
-        private void Window_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Escape)
-            {
-                this.Close();
-            }
-            else if (e.Key == Key.Enter && btnSave.IsEnabled)
-            {
-                BtnSave_Click(sender, e);
-            }
-        }
+        
     }
 
     // Допоміжний клас для діалогу вибору іконки
